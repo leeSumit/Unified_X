@@ -1,0 +1,13 @@
+# Claude Code local settings (machine-specific, not committed)
+.claude/settings.local.json
+
+# Common
+.env
+.env.local
+.DS_Store
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+dist/
+build/
