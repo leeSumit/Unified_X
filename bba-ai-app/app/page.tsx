@@ -44,7 +44,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-cream">
+    <div className="min-h-screen" style={{ background: '#F2F3F3' }}>
       <Header />
 
       <main className="max-w-5xl mx-auto px-6 pb-16">

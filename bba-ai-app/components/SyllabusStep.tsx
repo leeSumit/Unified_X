@@ -7,18 +7,17 @@ interface Props {
 }
 
 export default function SyllabusStep({ onModulesExtracted }: Props) {
-  const [tab, setTab] = useState<'paste' | 'upload'>('paste');
-  const [text, setText] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [tab, setTab]         = useState<'paste' | 'upload'>('paste');
+  const [text, setText]       = useState('');
+  const [file, setFile]       = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleExtract() {
     setError(null);
     setLoading(true);
-
     try {
       const formData = new FormData();
       if (tab === 'upload' && file) {
@@ -30,15 +29,9 @@ export default function SyllabusStep({ onModulesExtracted }: Props) {
         setLoading(false);
         return;
       }
-
-      const res = await fetch('/api/parse', { method: 'POST', body: formData });
+      const res  = await fetch('/api/parse', { method: 'POST', body: formData });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error ?? 'Failed to parse syllabus.');
-        return;
-      }
-
+      if (!res.ok) { setError(data.error ?? 'Failed to parse syllabus.'); return; }
       onModulesExtracted(data.modules);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error. Try again.');
@@ -51,36 +44,38 @@ export default function SyllabusStep({ onModulesExtracted }: Props) {
     e.preventDefault();
     setDragging(false);
     const dropped = e.dataTransfer.files[0];
-    if (dropped) {
-      setFile(dropped);
-      setTab('upload');
-    }
+    if (dropped) { setFile(dropped); setTab('upload'); }
   }
 
   const canSubmit = tab === 'paste' ? text.trim().length > 30 : file !== null;
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-brand-purple mb-2">Add your syllabus</h2>
-        <p className="text-gray-600">
+      {/* Page heading */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: '#FF9900' }}>Step 1</p>
+        <h2 className="text-2xl font-bold" style={{ color: '#16191F' }}>Add your syllabus</h2>
+        <p className="mt-1 text-sm" style={{ color: '#545B64' }}>
           Paste the syllabus text or upload a PDF/DOCX file. We&rsquo;ll extract the module list automatically.
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
+      {/* AWS-style tabs */}
+      <div className="flex" style={{ borderBottom: '1px solid #E9EBED', marginBottom: 20 }}>
         {(['paste', 'upload'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-6 py-3 text-sm font-semibold capitalize transition-all border-b-2 -mb-px ${
-              tab === t
-                ? 'border-brand-purple text-brand-purple'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className="px-5 py-2.5 text-sm font-semibold capitalize transition-all"
+            style={{
+              borderBottom:  tab === t ? '2px solid #FF9900' : '2px solid transparent',
+              color:         tab === t ? '#16191F' : '#545B64',
+              marginBottom:  -1,
+              background:    'none',
+              cursor:        'pointer',
+            }}
           >
-            {t === 'paste' ? '📋  Paste text' : '📄  Upload file'}
+            {t === 'paste' ? 'Paste text' : 'Upload file'}
           </button>
         ))}
       </div>
@@ -88,8 +83,18 @@ export default function SyllabusStep({ onModulesExtracted }: Props) {
       {/* Paste tab */}
       {tab === 'paste' && (
         <textarea
-          className="w-full h-64 p-4 border-2 border-gray-200 rounded-xl focus:border-brand-purple focus:outline-none resize-none text-sm font-mono bg-white text-gray-800 placeholder-gray-400 transition"
-          placeholder={`Paste your syllabus here…\n\nExample:\n  Semester 1, Module 1: Prompt Engineering Frameworks (12 hrs)\n  Topics: RACE, AIDA, Chain-of-Thought, Few-Shot…\n  Module 2: AI-Assisted Writing (12 hrs)\n  Topics: Long-form content, Brand voice…`}
+          className="w-full p-4 text-sm font-mono resize-none transition"
+          style={{
+            height: 256,
+            background: '#FFFFFF',
+            border: '1px solid #8D9BA8',
+            borderRadius: 2,
+            color: '#16191F',
+            outline: 'none',
+          }}
+          onFocus={e => (e.target.style.borderColor = '#0073BB')}
+          onBlur={e  => (e.target.style.borderColor = '#8D9BA8')}
+          placeholder={`Paste your syllabus here…\n\nExample:\n  Semester 1, Module 1: Prompt Engineering Frameworks (12 hrs)\n  Topics: RACE, AIDA, Chain-of-Thought, Few-Shot…`}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
@@ -98,13 +103,12 @@ export default function SyllabusStep({ onModulesExtracted }: Props) {
       {/* Upload tab */}
       {tab === 'upload' && (
         <div
-          className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
-            dragging
-              ? 'border-brand-purple bg-purple-50'
-              : file
-              ? 'border-brand-orange bg-orange-50'
-              : 'border-gray-300 bg-white hover:border-brand-purple hover:bg-purple-50'
-          }`}
+          className="p-10 text-center cursor-pointer transition-all"
+          style={{
+            border: `2px dashed ${dragging ? '#0073BB' : file ? '#FF9900' : '#8D9BA8'}`,
+            borderRadius: 2,
+            background: dragging ? '#F0F7FF' : file ? '#FFF8EE' : '#FFFFFF',
+          }}
           onClick={() => fileRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -119,28 +123,23 @@ export default function SyllabusStep({ onModulesExtracted }: Props) {
           />
           {file ? (
             <>
-              <div className="text-4xl mb-3">📄</div>
-              <p className="font-semibold text-brand-orange">{file.name}</p>
-              <p className="text-sm text-gray-500 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
-              <p className="text-xs text-gray-400 mt-3">Click to change file</p>
+              <div className="text-3xl mb-3">📄</div>
+              <p className="font-semibold" style={{ color: '#EC7211' }}>{file.name}</p>
+              <p className="text-sm mt-1" style={{ color: '#545B64' }}>{(file.size / 1024).toFixed(1)} KB</p>
+              <p className="text-xs mt-3" style={{ color: '#8D9BA8' }}>Click to change file</p>
             </>
           ) : (
             <>
-              <div className="text-4xl mb-3">☁️</div>
-              <p className="font-semibold text-gray-700">Drop your file here, or click to browse</p>
-              <p className="text-sm text-gray-400 mt-2">PDF, DOCX, or TXT · Max 10 MB</p>
-              {!process.env.NEXT_PUBLIC_MISTRAL_CONFIGURED && (
-                <p className="text-xs text-amber-600 mt-3 bg-amber-50 px-3 py-1.5 rounded-lg inline-block">
-                  💡 Set MISTRAL_API_KEY in .env.local for full OCR support
-                </p>
-              )}
+              <div className="text-3xl mb-3">☁</div>
+              <p className="font-semibold" style={{ color: '#16191F' }}>Drop your file here, or click to browse</p>
+              <p className="text-sm mt-2" style={{ color: '#8D9BA8' }}>PDF, DOCX, or TXT · Max 10 MB</p>
             </>
           )}
         </div>
       )}
 
       {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+        <div className="mt-4 p-3 text-sm" style={{ background: '#FDF3F1', border: '1px solid #D13212', borderRadius: 2, color: '#D13212' }}>
           {error}
         </div>
       )}
@@ -148,20 +147,23 @@ export default function SyllabusStep({ onModulesExtracted }: Props) {
       <button
         onClick={handleExtract}
         disabled={!canSubmit || loading}
-        className={`mt-6 w-full py-3.5 px-6 rounded-xl font-bold text-white text-base transition-all ${
-          canSubmit && !loading
-            ? 'bg-brand-purple hover:bg-brand-purple-dark shadow-md hover:shadow-lg active:scale-98'
-            : 'bg-gray-300 cursor-not-allowed'
-        }`}
+        className="mt-5 w-full py-3 px-6 font-semibold text-sm transition-all flex items-center justify-center gap-2"
+        style={{
+          borderRadius: 2,
+          background:   canSubmit && !loading ? '#FF9900' : '#E9EBED',
+          color:        canSubmit && !loading ? '#16191F' : '#8D9BA8',
+          border:       'none',
+          cursor:       canSubmit && !loading ? 'pointer' : 'not-allowed',
+        }}
       >
         {loading ? (
-          <span className="flex items-center justify-center gap-2">
+          <>
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
             Extracting modules…
-          </span>
+          </>
         ) : (
           'Extract Modules →'
         )}

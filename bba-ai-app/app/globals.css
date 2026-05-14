@@ -5,55 +5,76 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --brand-purple: #5B2D8E;
-  --brand-orange: #E8681A;
-  --brand-cream: #F5F0E8;
+  --aws-navy:    #232F3E;
+  --aws-orange:  #FF9900;
+  --aws-blue:    #0073BB;
+  --aws-text:    #16191F;
+  --aws-muted:   #545B64;
+  --aws-border:  #E9EBED;
+  --aws-bg:      #F2F3F3;
 }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
-  background-color: #F5F0E8;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: #1a1a2e;
+  background-color: #F2F3F3;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: #16191F;
 }
 
-/* Prose overrides for generated content */
-.prose h1, .prose h2, .prose h3 {
-  color: #5B2D8E;
+/* AWS-style button base */
+.btn-aws-primary {
+  background: #FF9900;
+  color: #16191F;
+  border: 1px solid #FF9900;
+  border-radius: 2px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  transition: background 0.15s, border-color 0.15s;
+  cursor: pointer;
+}
+.btn-aws-primary:hover { background: #EC7211; border-color: #EC7211; }
+.btn-aws-primary:disabled { background: #E9EBED; border-color: #E9EBED; color: #8D9BA8; cursor: not-allowed; }
+
+.btn-aws-secondary {
+  background: #FFFFFF;
+  color: #16191F;
+  border: 1px solid #8D9BA8;
+  border-radius: 2px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.625rem 1.25rem;
+  transition: background 0.15s, border-color 0.15s;
+  cursor: pointer;
+}
+.btn-aws-secondary:hover { background: #F2F3F3; border-color: #16191F; }
+
+/* AWS card */
+.card-aws {
+  background: #FFFFFF;
+  border: 1px solid #E9EBED;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-.prose strong {
-  color: #3D1D6E;
-}
-
+/* Prose overrides */
+.prose h1, .prose h2, .prose h3 { color: #16191F; }
+.prose strong { color: #16191F; }
+.prose a { color: #0073BB; }
 .prose blockquote {
-  border-left-color: #5B2D8E;
-  background-color: #f0ebf8;
+  border-left-color: #FF9900;
+  background: #FFF8EE;
   padding: 0.75rem 1rem;
-  border-radius: 0 0.375rem 0.375rem 0;
+  border-radius: 0 2px 2px 0;
 }
-
 .prose code {
-  background-color: #f0ebf8;
-  color: #5B2D8E;
+  background: #F2F3F3;
+  color: #16191F;
   padding: 0.1rem 0.3rem;
-  border-radius: 0.25rem;
+  border-radius: 2px;
   font-size: 0.85em;
 }
-
-.prose pre {
-  background-color: #1a1a2e;
-  color: #e2d9f3;
-}
-
-.prose table th {
-  background-color: #5B2D8E;
-  color: white;
-}
-
-.prose table tr:nth-child(even) {
-  background-color: #f0ebf8;
-}
+.prose pre { background: #232F3E; color: #E9EBED; }
+.prose table th { background: #232F3E; color: #FFFFFF; }
+.prose table tr:nth-child(even) { background: #F2F3F3; }
