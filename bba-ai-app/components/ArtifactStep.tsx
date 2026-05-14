@@ -63,7 +63,7 @@ export default function ArtifactStep({ module, onGenerate, onBack }: Props) {
       {selected && (
         <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200 text-sm text-brand-purple">
           <strong>Note:</strong> Generation streams live — you&rsquo;ll see content appear word by word.
-          Claude Sonnet produces up to ~6,000 words per run. For full modules, generate in sections.
+          For full workbooks, generation may take 1–2 minutes.
         </div>
       )}
 

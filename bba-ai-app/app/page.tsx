@@ -7,6 +7,7 @@ import SyllabusStep from '@/components/SyllabusStep';
 import ModuleStep from '@/components/ModuleStep';
 import ArtifactStep from '@/components/ArtifactStep';
 import GenerateStep from '@/components/GenerateStep';
+import DesignLab from '@/components/DesignLab';
 import type { ParsedModule, ArtifactType, WizardStep } from '@/lib/types';
 
 export default function Home() {
@@ -27,7 +28,12 @@ export default function Home() {
 
   function handleGenerate(type: ArtifactType) {
     setArtifactType(type);
-    setStep('generate');
+    // PPT goes directly to Design Lab — no intermediate generate step
+    if (type === 'pptx') {
+      setStep('design-lab');
+    } else {
+      setStep('generate');
+    }
   }
 
   function handleRestart() {
@@ -68,6 +74,14 @@ export default function Home() {
           <GenerateStep
             module={selectedModule}
             artifactType={artifactType}
+            onBack={() => setStep('artifact')}
+            onRestart={handleRestart}
+          />
+        )}
+
+        {step === 'design-lab' && selectedModule && (
+          <DesignLab
+            module={selectedModule}
             onBack={() => setStep('artifact')}
             onRestart={handleRestart}
           />

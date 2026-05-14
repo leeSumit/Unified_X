@@ -55,8 +55,10 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Generation failed';
-        controller.enqueue(encoder.encode(`\n\n---\n\n**Error**: ${msg}`));
+        if ((err as Error).name !== 'AbortError') {
+          const msg = err instanceof Error ? err.message : 'Generation failed';
+          controller.enqueue(encoder.encode(`\n\n---\n\n**Error**: ${msg}`));
+        }
       } finally {
         controller.close();
       }

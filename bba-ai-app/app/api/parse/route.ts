@@ -34,7 +34,6 @@ async function extractTextFromFile(file: File): Promise<string> {
       const pages: { markdown: string }[] = data.pages ?? [];
       return pages.map((p) => p.markdown).join('\n\n');
     }
-    // Fall through to local extraction if OCR fails
   }
 
   // DOCX — mammoth
@@ -104,7 +103,6 @@ ${text.slice(0, 10000)}`,
   if (content.type !== 'text') throw new Error('Unexpected response from parser');
 
   const raw = content.text.trim();
-  // Extract JSON array — handle responses that might have trailing text
   const match = raw.match(/\[[\s\S]*\]/);
   if (!match) throw new Error('Could not extract module list from syllabus. Try pasting more structured text.');
 

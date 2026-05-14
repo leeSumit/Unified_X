@@ -12,7 +12,9 @@ export interface ParsedModule {
 
 export type ArtifactType = 'notes' | 'pptx' | 'workbook';
 
-export type WizardStep = 'input' | 'modules' | 'artifact' | 'generate';
+export type TemplateId = 'campus-ai' | 'clean' | 'whiteboard';
+
+export type WizardStep = 'input' | 'modules' | 'artifact' | 'generate' | 'design-lab';
 
 export interface ArtifactMeta {
   id: ArtifactType;

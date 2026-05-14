@@ -11,3 +11,7 @@ __pycache__/
 .venv/
 dist/
 build/
+.claws/
+.mcp.json
+.claws-bin/
+bba-ai-app/response/
