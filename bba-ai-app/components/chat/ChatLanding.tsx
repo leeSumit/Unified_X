@@ -82,22 +82,6 @@ export default function ChatLanding({ onSubmit, isParsing = false, serverError =
             gap: 16,
           }}
         >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
-              background: '#f97316',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 22,
-              fontWeight: 800,
-            }}
-          >
-            U
-          </div>
           <h1
             style={{
               fontSize: 'clamp(52px, 7vw, 96px)',
@@ -111,7 +95,7 @@ export default function ChatLanding({ onSubmit, isParsing = false, serverError =
             UN<span style={{ color: '#f97316', fontWeight: 900 }}>AI</span>TED
           </h1>
           <p style={{ fontSize: 18, color: '#8892a4', margin: 0, fontWeight: 400 }}>
-            Turn your syllabus into a complete learning experience
+            A united workflow for educators
           </p>
         </div>
 
