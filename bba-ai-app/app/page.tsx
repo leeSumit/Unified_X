@@ -1,92 +1,262 @@
 'use client';
 
-import { useState } from 'react';
-import Header from '@/components/Header';
-import StepIndicator from '@/components/StepIndicator';
-import SyllabusStep from '@/components/SyllabusStep';
-import ModuleStep from '@/components/ModuleStep';
-import ArtifactStep from '@/components/ArtifactStep';
-import GenerateStep from '@/components/GenerateStep';
+import { useState, useEffect } from 'react';
 import DesignLab from '@/components/DesignLab';
-import type { ParsedModule, ArtifactType, WizardStep } from '@/lib/types';
+import { makeUserMessage, makeAiMessage } from '@/lib/chat-state';
+import type { ParsedModule, ArtifactType } from '@/lib/types';
+import type { ChatStep, ChatMessage, ChatMessageType } from '@/lib/chat-types';
+import ChatLanding from '@/components/chat/ChatLanding';
+import ChatInterface from '@/components/chat/ChatInterface';
+import ChatHeader from '@/components/chat/ChatHeader';
+
+const CHAT_STEPS: ChatStep[] = [
+  'selecting-module',
+  'selecting-artifact',
+  'generating-notes',
+  'generating-done',
+];
 
 export default function Home() {
-  const [step, setStep] = useState<WizardStep>('input');
+  const [chatStep, setChatStep] = useState<ChatStep>('landing');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modules, setModules] = useState<ParsedModule[]>([]);
   const [selectedModule, setSelectedModule] = useState<ParsedModule | null>(null);
   const [artifactType, setArtifactType] = useState<ArtifactType | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
+  const [streamContent, setStreamContent] = useState('');
+  const [wordCount, setWordCount] = useState(0);
+  const [transitioning, setTransitioning] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
 
-  function handleModulesExtracted(mods: ParsedModule[]) {
-    setModules(mods);
-    setStep('modules');
-  }
-
-  function handleModuleSelect(mod: ParsedModule) {
-    setSelectedModule(mod);
-    setStep('artifact');
-  }
-
-  function handleGenerate(type: ArtifactType) {
-    setArtifactType(type);
-    // PPT goes directly to Design Lab — no intermediate generate step
-    if (type === 'pptx') {
-      setStep('design-lab');
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
     } else {
-      setStep('generate');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  async function handleSyllabusSubmit(text: string, file: File | null) {
+    const userMsg: ChatMessage = file
+      ? makeUserMessage('file-attachment', { fileName: file.name })
+      : makeUserMessage('text', {
+          content: text.length > 80 ? text.slice(0, 80) + '…' : text,
+        });
+
+    setMessages((prev) => [...prev, userMsg]);
+    setParseError(null);
+    setChatStep('parsing');
+
+    const formData = new FormData();
+    if (file) {
+      formData.append('file', file);
+    } else {
+      formData.append('text', text);
+    }
+
+    try {
+      const res = await fetch('/api/parse', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setParseError(data.error ?? 'Failed to parse syllabus. Please try again.');
+        setChatStep('landing');
+        setMessages([]);
+        return;
+      }
+
+      const parsed: ParsedModule[] = data.modules ?? [];
+
+      if (parsed.length === 0) {
+        setParseError('No modules found. Make sure your syllabus includes module titles and topics, then try again.');
+        setChatStep('landing');
+        setMessages([]);
+        return;
+      }
+
+      setModules(parsed);
+      setChatStep('selecting-module');
+
+      const typingMsg = makeAiMessage('typing');
+      setMessages((prev) => [...prev, typingMsg]);
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 800));
+
+      setMessages((prev) => {
+        const withoutTyping = prev.filter((m) => m.id !== typingMsg.id);
+        const aiText = makeAiMessage('text', {
+          content: `I've parsed your syllabus and found ${parsed.length} module${parsed.length !== 1 ? 's' : ''}. Which one would you like to explore?`,
+        });
+        const aiModules = makeAiMessage('module-list', { modules: parsed });
+        return [...withoutTyping, aiText, aiModules];
+      });
+    } catch (err) {
+      console.error('Parse error:', err);
+      setParseError('Network error. Please check your connection and try again.');
+      setChatStep('landing');
+      setMessages([]);
+    }
+  }
+
+  async function handleModuleSelect(mod: ParsedModule) {
+    const userMsg = makeUserMessage('text', { content: mod.title });
+    setMessages((prev) => [...prev, userMsg]);
+    setSelectedModule(mod);
+    setChatStep('selecting-artifact');
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 600));
+
+    const topicsPreview = mod.topics.slice(0, 3).join(', ');
+    const hasMore = mod.topics.length > 3;
+    const aiText = makeAiMessage('text', {
+      content: `**${mod.title}**\nSemester ${mod.semester} · ${mod.hours} hours\nTopics: ${topicsPreview}${hasMore ? '…' : ''}\n\nWhat would you like to create?`,
+    });
+    const aiArtifacts = makeAiMessage('artifact-options');
+    setMessages((prev) => [...prev, aiText, aiArtifacts]);
+  }
+
+  async function handleArtifactSelect(type: ArtifactType) {
+    const labelMap: Record<ArtifactType, string> = {
+      notes: 'Notes',
+      pptx: 'PPTX',
+      workbook: 'Workbook',
+    };
+    const userMsg = makeUserMessage('text', { content: labelMap[type] });
+    setMessages((prev) => [...prev, userMsg]);
+    setArtifactType(type);
+
+    if (type === 'pptx') {
+      await new Promise<void>((resolve) => setTimeout(resolve, 400));
+      setTransitioning(true);
+      setChatStep('design-lab');
+      setTimeout(() => setTransitioning(false), 350);
+      return;
+    }
+
+    setChatStep('generating-notes');
+    setStreamContent('');
+    setWordCount(0);
+
+    const streamMsg = makeAiMessage('stream');
+    setMessages((prev) => [...prev, streamMsg]);
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ module: selectedModule, artifactType: type }),
+      });
+
+      if (!res.ok || !res.body) {
+        throw new Error('Generation failed');
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        full += decoder.decode(value, { stream: true });
+        const words = full.trim().split(/\s+/).filter(Boolean).length;
+        setStreamContent(full);
+        setWordCount(words);
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (!last || last.id !== streamMsg.id) return prev;
+          return [
+            ...prev.slice(0, -1),
+            { ...last, streamContent: full, wordCount: words },
+          ];
+        });
+      }
+
+      setChatStep('generating-done');
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (!last || last.id !== streamMsg.id) return prev;
+        return [
+          ...prev.slice(0, -1),
+          {
+            ...last,
+            type: 'stream-done' as ChatMessageType,
+            streamContent: full,
+            wordCount: full.trim().split(/\s+/).filter(Boolean).length,
+          },
+        ];
+      });
+    } catch (err) {
+      console.error('Generate error:', err);
     }
   }
 
   function handleRestart() {
-    setStep('input');
+    setChatStep('landing');
+    setMessages([]);
     setModules([]);
     setSelectedModule(null);
     setArtifactType(null);
+    setStreamContent('');
+    setWordCount(0);
+    setParseError(null);
   }
 
+  const isChatStep = CHAT_STEPS.includes(chatStep);
+  const isLandingStep = chatStep === 'landing' || chatStep === 'parsing';
+  const streamDone = chatStep === 'generating-done';
+
   return (
-    <div className="min-h-screen" style={{ background: '#F2F3F3' }}>
-      <Header />
+    <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+      {isLandingStep && (
+        <ChatLanding
+          onSubmit={handleSyllabusSubmit}
+          isParsing={chatStep === 'parsing'}
+          serverError={parseError}
+        />
+      )}
 
-      <main className="max-w-5xl mx-auto px-6 pb-16">
-        <StepIndicator current={step} />
+      {isChatStep && (
+        <ChatInterface
+          messages={messages}
+          chatStep={chatStep}
+          modules={modules}
+          selectedModule={selectedModule}
+          artifactType={artifactType}
+          onModuleSelect={handleModuleSelect}
+          onArtifactSelect={handleArtifactSelect}
+          onRestart={handleRestart}
+          streamContent={streamContent}
+          wordCount={wordCount}
+          streamDone={streamDone}
+          darkMode={darkMode}
+          onToggleDark={() => setDarkMode((d) => !d)}
+        />
+      )}
 
-        {step === 'input' && (
-          <SyllabusStep onModulesExtracted={handleModulesExtracted} />
-        )}
-
-        {step === 'modules' && (
-          <ModuleStep
-            modules={modules}
-            onSelect={handleModuleSelect}
-            onBack={() => setStep('input')}
+      {chatStep === 'design-lab' && selectedModule && (
+        <div
+          className={`min-h-screen flex flex-col ${transitioning ? 'designlab-enter' : ''}`}
+          style={{ background: 'var(--bg-base)' }}
+        >
+          <ChatHeader
+            onNew={handleRestart}
+            darkMode={darkMode}
+            onToggleDark={() => setDarkMode((d) => !d)}
+            showBackToChat
+            onBackToChat={() => {
+              setChatStep('selecting-artifact');
+            }}
           />
-        )}
-
-        {step === 'artifact' && selectedModule && (
-          <ArtifactStep
-            module={selectedModule}
-            onGenerate={handleGenerate}
-            onBack={() => setStep('modules')}
-          />
-        )}
-
-        {step === 'generate' && selectedModule && artifactType && (
-          <GenerateStep
-            module={selectedModule}
-            artifactType={artifactType}
-            onBack={() => setStep('artifact')}
-            onRestart={handleRestart}
-          />
-        )}
-
-        {step === 'design-lab' && selectedModule && (
-          <DesignLab
-            module={selectedModule}
-            onBack={() => setStep('artifact')}
-            onRestart={handleRestart}
-          />
-        )}
-      </main>
+          <div className="flex-1 overflow-auto pt-4 pb-8">
+            <DesignLab
+              module={selectedModule}
+              onBack={() => setChatStep('selecting-artifact')}
+              onRestart={handleRestart}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

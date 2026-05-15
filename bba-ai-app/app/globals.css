@@ -17,9 +17,9 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background-color: #F2F3F3;
+  background-color: #0a0a0f;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  color: #16191F;
+  color: #e2e8f0;
 }
 
 /* AWS-style button base */
@@ -78,3 +78,111 @@ body {
 .prose pre { background: #232F3E; color: #E9EBED; }
 .prose table th { background: #232F3E; color: #FFFFFF; }
 .prose table tr:nth-child(even) { background: #F2F3F3; }
+
+/* ─── Chat UI Design Tokens ─────────────────────────────────────── */
+:root {
+  /* Layout */
+  --chat-max-w: 720px;
+  --chat-input-radius: 16px;
+  --chat-bubble-radius-user: 20px 20px 4px 20px;
+  --chat-bubble-radius-ai: 20px 20px 20px 4px;
+  --chat-card-radius: 16px;
+
+  /* Colors — dark-first */
+  --bg-base: #0a0a0f;
+  --bg-surface: #141420;
+  --bg-input: #16161e;
+  --bg-user-bubble: #f97316;
+  --text-user-bubble: #ffffff;
+  --bg-ai-bubble: #141420;
+  --text-ai-bubble: #e2e8f0;
+  --border-subtle: rgba(255,255,255,0.06);
+  --text-primary: #e2e8f0;
+  --text-muted: #8892a4;
+  --accent: #f97316;
+  --accent-hover: #ea6c0f;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+
+  /* Spacing (8px grid) */
+  --sp-1: 8px;
+  --sp-2: 16px;
+  --sp-3: 24px;
+  --sp-4: 32px;
+  --sp-6: 48px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-input: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* Dark mode token overrides (same as :root since default is dark) */
+.dark {
+  --bg-base: #0a0a0f;
+  --bg-surface: #141420;
+  --bg-input: #16161e;
+  --bg-user-bubble: #f97316;
+  --bg-ai-bubble: #141420;
+  --text-ai-bubble: #e2e8f0;
+  --text-primary: #e2e8f0;
+  --text-muted: #8892a4;
+  --border-subtle: rgba(255,255,255,0.06);
+}
+
+@keyframes typingDot {
+  0%, 80%, 100% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+}
+
+/* Dark mode overrides */
+.dark {
+  color-scheme: dark;
+}
+.dark body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* ─── Chat ↔ DesignLab transition animations (D1) ──────────────────────────── */
+.chat-exit {
+  animation: slideUpFade 200ms ease-out forwards;
+}
+.chat-enter {
+  animation: slideInUp 250ms ease-out 50ms both;
+}
+.designlab-exit {
+  animation: slideLeftFade 250ms ease-in-out forwards;
+}
+.designlab-enter {
+  animation: slideInRight 300ms ease-out 100ms both;
+}
+
+@keyframes slideUpFade {
+  to { opacity: 0; transform: translateY(-20px); }
+}
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+}
+@keyframes slideLeftFade {
+  to { opacity: 0; transform: translateX(-30px); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+}
+
+/* Message bubble entry animation */
+.msg-enter {
+  animation: msgSlideIn 200ms ease-out both;
+}
+@keyframes msgSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+/* Generic fade-in for InlineActions */
+@keyframes fadeIn {
+  from { opacity: 0; }
+}
