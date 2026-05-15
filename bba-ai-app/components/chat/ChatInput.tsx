@@ -50,7 +50,7 @@ export default function ChatInput({
 
   const wrapperStyle: React.CSSProperties = multiline
     ? {
-        borderRadius: 9999,
+        borderRadius: 20,
         background: '#16161e',
         padding: '8px 8px 8px 20px',
         display: 'flex',
@@ -58,6 +58,7 @@ export default function ChatInput({
         gap: 8,
         minHeight: 52,
         border: '1px solid rgba(255,255,255,0.08)',
+        overflow: 'hidden',
       }
     : {
         borderRadius: 9999,

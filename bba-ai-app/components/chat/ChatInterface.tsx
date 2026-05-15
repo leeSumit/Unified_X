@@ -131,7 +131,7 @@ export default function ChatInterface({
           background: 'transparent',
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: '100%' }}>
           {messages.map((msg) => renderMessage(msg))}
           {isTyping && <TypingIndicator visible />}
         </div>

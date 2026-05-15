@@ -4,12 +4,6 @@ import { useState } from 'react';
 import type { ArtifactType } from '@/lib/types';
 import { ARTIFACT_TYPES } from '@/lib/types';
 
-const ICONS: Record<ArtifactType, string> = {
-  notes: '🗒',
-  pptx: '📊',
-  workbook: '📋',
-};
-
 interface Props {
   onSelect: (type: ArtifactType) => void;
 }
@@ -62,7 +56,6 @@ export default function ArtifactCards({ onSelect }: Props) {
               }
             }}
           >
-            <span style={{ fontSize: 24 }}>{ICONS[artifact.id]}</span>
             <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
               {artifact.label}
             </span>
