@@ -70,12 +70,13 @@ export default function GenerateView({ streamContent, wordCount, done, artifactT
       {/* Scrollable content */}
       <div
         ref={contentRef}
+        className="content-dark"
         style={{ flex: 1, overflowY: 'auto', padding: '24px', maxWidth: 860, width: '100%', marginLeft: 'auto', marginRight: 'auto', boxSizing: 'border-box' }}
       >
         {streamContent ? (
           <div
-            className="prose prose-sm max-w-none"
-            style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--text-primary)' }}
+            className="prose prose-sm prose-invert max-w-none"
+            style={{ fontSize: 15, lineHeight: 1.8 }}
             dangerouslySetInnerHTML={{ __html: renderMarkdown(streamContent) }}
           />
         ) : (

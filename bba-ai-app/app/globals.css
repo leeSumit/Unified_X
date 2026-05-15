@@ -58,26 +58,59 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-/* Prose overrides */
-.prose h1, .prose h2, .prose h3 { color: #16191F; }
-.prose strong { color: #16191F; }
-.prose a { color: #0073BB; }
-.prose blockquote {
+/* Prose overrides — light-bg (AWS-style, e.g. notes on white bg) */
+.content-light .prose h1, .content-light .prose h2, .content-light .prose h3 { color: #16191F; }
+.content-light .prose strong { color: #16191F; }
+.content-light .prose a { color: #0073BB; }
+.content-light .prose blockquote {
   border-left-color: #FF9900;
   background: #FFF8EE;
   padding: 0.75rem 1rem;
   border-radius: 0 2px 2px 0;
 }
-.prose code {
+.content-light .prose code {
   background: #F2F3F3;
   color: #16191F;
   padding: 0.1rem 0.3rem;
   border-radius: 2px;
   font-size: 0.85em;
 }
-.prose pre { background: #232F3E; color: #E9EBED; }
-.prose table th { background: #232F3E; color: #FFFFFF; }
-.prose table tr:nth-child(even) { background: #F2F3F3; }
+.content-light .prose pre { background: #232F3E; color: #E9EBED; }
+.content-light .prose table th { background: #232F3E; color: #FFFFFF; }
+.content-light .prose table tr:nth-child(even) { background: #F2F3F3; }
+
+/* Prose overrides — dark-bg (GenerateView streaming content) */
+.content-dark .prose h1,
+.content-dark .prose h2,
+.content-dark .prose h3 { color: #f1f5f9; font-weight: 700; }
+.content-dark .prose h4, .content-dark .prose h5, .content-dark .prose h6 { color: #cbd5e1; font-weight: 600; }
+.content-dark .prose p, .content-dark .prose li { color: #e2e8f0; }
+.content-dark .prose strong { color: #f8fafc; }
+.content-dark .prose em { color: #cbd5e1; }
+.content-dark .prose a { color: #fb923c; }
+.content-dark .prose blockquote {
+  border-left: 3px solid #f97316;
+  background: rgba(249, 115, 22, 0.08);
+  padding: 0.75rem 1rem;
+  border-radius: 0 4px 4px 0;
+  color: #e2e8f0;
+}
+.content-dark .prose code {
+  background: rgba(255,255,255,0.08);
+  color: #f1f5f9;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+.content-dark .prose pre {
+  background: #141420;
+  color: #e2e8f0;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.content-dark .prose table th { background: #1e1e2e; color: #f1f5f9; }
+.content-dark .prose table td { color: #e2e8f0; border-color: rgba(255,255,255,0.08); }
+.content-dark .prose table tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+.content-dark .prose hr { border-color: rgba(255,255,255,0.1); }
 
 /* ─── Chat UI Design Tokens ─────────────────────────────────────── */
 :root {
