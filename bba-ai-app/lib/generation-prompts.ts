@@ -2,10 +2,8 @@ import path from 'path';
 import fs from 'fs';
 import type { ParsedModule, ArtifactType } from './types';
 
-const BBA_AI_ROOT = path.join(process.cwd(), '..', 'bba-ai');
-
 function readPrompt(filename: string): string {
-  const filePath = path.join(BBA_AI_ROOT, 'prompts', filename);
+  const filePath = path.join(process.cwd(), 'prompts', filename);
   return fs.readFileSync(filePath, 'utf-8');
 }
 
