@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import type { ParsedModule } from '@/lib/types';
+import type { CustomThemeColors } from '@/lib/types';
 import {
   SLIDE_DISTRIBUTIONS,
   buildContentPrompt,
@@ -17,6 +18,8 @@ async function generateSlides(
   slideSequence: string[],
   customPrompt: string,
   resolvedCount: number,
+  programName: string,
+  universityName: string,
 ): Promise<AnySlide[]> {
   // ~650 tokens per slide + 2000 buffer; claude-sonnet-4-6 supports up to 64k output
   const maxTokens = Math.min(64000, Math.max(6000, resolvedCount * 650 + 2000));
@@ -35,6 +38,8 @@ async function generateSlides(
     module.learningOutcomes,
     slideSequence,
     customPrompt,
+    programName,
+    universityName,
   );
 
   // Primary: Claude Sonnet via OpenRouter
@@ -107,13 +112,16 @@ function sseEvent(data: unknown): Uint8Array {
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  let module: ParsedModule, direction: string, rawSlideCount: number | 'auto', customPrompt: string, resolvedCount: number;
+  let module: ParsedModule, direction: string, rawSlideCount: number | 'auto', customPrompt: string, resolvedCount: number, programName: string, universityName: string, customThemeColors: CustomThemeColors | undefined;
   try {
     const body = await request.json();
     module = body.module;
     direction = body.direction || 'modern-minimal';
     rawSlideCount = body.slideCount ?? 'auto';
     customPrompt = body.customPrompt || '';
+    programName = body.programName || 'BBA';
+    universityName = body.universityName || '';
+    customThemeColors = body.customThemeColors;
     if (!module?.title) throw new Error('Missing module');
     resolvedCount = rawSlideCount === 'auto'
       ? recommendSlideCount(module.topics ?? [], module.hours ?? 3)
@@ -132,7 +140,7 @@ export async function POST(request: NextRequest) {
       // Pass 1: content generation (Claude Sonnet)
       let slides: AnySlide[];
       try {
-        slides = await generateSlides(module, slideSequence, customPrompt, resolvedCount);
+        slides = await generateSlides(module, slideSequence, customPrompt, resolvedCount, programName, universityName);
       } catch (err) {
         await writer.write(sseEvent({
           error: `Content generation failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -152,7 +160,7 @@ export async function POST(request: NextRequest) {
       // Pass 2: generate ALL slide images in parallel
       await Promise.all(
         slides.map((slide, i) =>
-          (({ prompt: slidePrompt, systemPrompt }) => genSlideImage(slidePrompt, systemPrompt))(buildSlideImagePrompt(slide, direction, module.title))
+          (({ prompt: slidePrompt, systemPrompt }) => genSlideImage(slidePrompt, systemPrompt))(buildSlideImagePrompt(slide, direction, module.title, programName, universityName, customThemeColors))
             .then(async imageUrl => {
               await writer.write(sseEvent({
                 event: 'slide',

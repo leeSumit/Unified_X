@@ -10,6 +10,12 @@ export interface ParsedModule {
   learningOutcomes?: string[];
 }
 
+export interface CustomThemeColors {
+  bg: string;
+  primary: string;
+  accent: string;
+}
+
 export type ArtifactType = 'notes' | 'pptx' | 'workbook';
 
 export type TemplateId = 'campus-ai' | 'clean' | 'whiteboard';

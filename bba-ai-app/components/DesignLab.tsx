@@ -133,6 +133,9 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
   const [slideCount, setSlideCount] = useState<SlideCount>('auto');
   const [resolvedCount, setResolvedCount] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
+  const [programName, setProgramName] = useState('BBA');
+  const [universityName, setUniversityName] = useState('');
+  const [customThemeColors, setCustomThemeColors] = useState({ bg: '#ffffff', primary: '#3b6cff', accent: '#7a5cff' });
   const [status, setStatus] = useState<Status>('idle');
   const [slides, setSlides] = useState<(SlideState | undefined)[]>([]);
   const [totalSlides, setTotalSlides] = useState(0);
@@ -148,11 +151,18 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
   const doneSlides = slides.filter((s): s is SlideState => !!s && s.status === 'done');
   const doneCount = doneSlides.length;
 
-  const selectedDir = DIRECTIONS.find(d => d.id === direction)!;
+  const directions = [
+    ...DIRECTIONS,
+    { id: 'custom', label: 'Custom', accent: customThemeColors.primary, bg: customThemeColors.bg },
+  ];
+
+  const selectedDir = directions.find(d => d.id === direction)!;
 
   // ─── Keyboard navigation ───────────────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (editingIndex !== null) return; // don't nav when editing
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
@@ -189,7 +199,15 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ module, direction, slideCount, customPrompt }),
+        body: JSON.stringify({
+          module,
+          direction,
+          slideCount,
+          customPrompt,
+          programName,
+          universityName,
+          ...(direction === 'custom' ? { customThemeColors } : {}),
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -335,6 +353,9 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
           slideContent: { ...editContent, type: slides[editingIndex]?.type },
           direction,
           module,
+          programName,
+          universityName,
+          ...(direction === 'custom' ? { customThemeColors } : {}),
         }),
       });
       const data = await res.json() as { imageUrl?: string | null; content?: Record<string, unknown>; error?: string };
@@ -420,6 +441,32 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
               ))}
             </div>
           </div>
+          {/* Branding */}
+          <div className="flex-1 min-w-64">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Branding</p>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 mb-1 block">Program Name</label>
+                <input
+                  type="text"
+                  value={programName}
+                  onChange={e => setProgramName(e.target.value)}
+                  placeholder="BBA"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 text-gray-700 placeholder-gray-400"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 mb-1 block">University Name</label>
+                <input
+                  type="text"
+                  value={universityName}
+                  onChange={e => setUniversityName(e.target.value)}
+                  placeholder="Your University"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 text-gray-700 placeholder-gray-400"
+                />
+              </div>
+            </div>
+          </div>
           <div className="flex-1 min-w-48">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
               Custom Instructions <span className="font-normal text-gray-400 normal-case">(optional)</span>
@@ -439,7 +486,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visual Style</p>
           <div className="flex gap-2 flex-wrap">
-            {DIRECTIONS.map(dir => (
+            {directions.map(dir => (
               <button
                 key={dir.id}
                 onClick={() => setDirection(dir.id)}
@@ -460,6 +507,22 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
               </button>
             ))}
           </div>
+          {direction === 'custom' && (
+            <div className="flex gap-4 mt-3 flex-wrap">
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <span>Background</span>
+                <input type="color" value={customThemeColors.bg} onChange={e => setCustomThemeColors(p => ({ ...p, bg: e.target.value }))} className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <span>Primary</span>
+                <input type="color" value={customThemeColors.primary} onChange={e => setCustomThemeColors(p => ({ ...p, primary: e.target.value }))} className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <span>Accent</span>
+                <input type="color" value={customThemeColors.accent} onChange={e => setCustomThemeColors(p => ({ ...p, accent: e.target.value }))} className="w-8 h-8 rounded cursor-pointer border border-gray-200" />
+              </label>
+            </div>
+          )}
         </div>
       </div>
 

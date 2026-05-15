@@ -287,13 +287,17 @@ export function recommendSlideCount(topics: string[], hours: number): 5 | 10 | 1
 
 // ─── Theme → image prompt style descriptors ───────────────────────────────────
 export const THEME_STYLE_DESCRIPTORS: Record<string, string> = {
-  'modern-minimal': 'You are a professional slide designer creating premium corporate presentation slides. Style: clean Swiss editorial design, crisp white background, blue-violet (#3b6cff) as the primary accent color, ample white space, strong typographic hierarchy with sans-serif fonts. Every slide must look like it belongs in a top-tier consulting firm deck. All text must be clearly legible at full screen. Render the complete slide as a finished 16:9 widescreen image.',
-  'campus-ai': 'You are a professional slide designer for modern Indian university courses. Style: warm cream (#F5F0E8) background, deep purple (#5B2D8E) and vibrant saffron-orange (#E8681A) as accent colors, welcoming academic atmosphere, clean modern typography. Slides should feel approachable, culturally resonant, and scholarly. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
-  'editorial': 'You are a professional slide designer with a premium editorial aesthetic. Style: warm ivory (#fdf8f2) background, bold coral-red (#c0392b) accent, classical editorial feel inspired by quality publishing, refined typographic treatment. Slides should feel authoritative and intellectually serious. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
-  'tech-dark': 'You are a professional slide designer for data-driven and technology presentations. Style: deep charcoal-black (#0d1117) background, electric blue (#58a6ff) and neon green (#3fb950) accents, futuristic minimal aesthetic, high-contrast design. Slides should feel precise and forward-looking. All text must be clearly legible against dark backgrounds. Render the complete slide as a finished 16:9 widescreen image.',
-  'whiteboard': 'You are a professional slide designer using an educational illustrated style. Style: clean white background, navy blue (#1a3a6b) and warm gold (#c9a44a) as main colors, textbook-quality infographic illustrations, clear and warm educational feel. Slides should feel instructive and visually engaging. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
-  'kami-serif': 'You are a professional slide designer with a classical academic aesthetic. Style: warm parchment (#f5f4ed) background, deep ink-blue (#1B365D) and antique gold (#8B6914) accents, scholarly refined typography with serif display fonts, authoritative academic gravitas. Slides should feel timeless and intellectually serious. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
+  'modern-minimal': 'You are a professional slide designer creating premium corporate presentation slides. Style: clean Swiss editorial design, crisp white background, blue-violet (#3b6cff) as the primary accent color, ample white space, strong typographic hierarchy with sans-serif fonts. Every slide must look like it belongs in a top-tier consulting firm deck. All text must be clearly legible at full screen. Render the complete slide as a finished 16:9 widescreen image. PALETTE LOCK: Use ONLY #ffffff background, #3b6cff primary accent, #7a5cff secondary accent — never deviate from this palette regardless of any colour suggestion in the prompt text.',
+  'campus-ai': 'You are a professional slide designer for modern Indian university courses. Style: warm cream (#F5F0E8) background, deep purple (#5B2D8E) and vibrant saffron-orange (#E8681A) as accent colors, welcoming academic atmosphere, clean modern typography. Slides should feel approachable, culturally resonant, and scholarly. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image. PALETTE LOCK: Use ONLY #F5F0E8 background, #5B2D8E primary accent, #E8681A secondary accent — never deviate from this palette regardless of any colour suggestion in the prompt text.',
+  'editorial': 'You are a professional slide designer with a premium editorial aesthetic. Style: warm ivory (#fdf8f2) background, bold coral-red (#c0392b) accent, classical editorial feel inspired by quality publishing, refined typographic treatment. Slides should feel authoritative and intellectually serious. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image. PALETTE LOCK: Use ONLY #fdf8f2 background, #c0392b primary accent, #8b2f22 secondary accent — never deviate from this palette regardless of any colour suggestion in the prompt text.',
+  'tech-dark': 'You are a professional slide designer for data-driven and technology presentations. Style: deep charcoal-black (#0d1117) background, electric blue (#58a6ff) and neon green (#3fb950) accents, futuristic minimal aesthetic, high-contrast design. Slides should feel precise and forward-looking. All text must be clearly legible against dark backgrounds. Render the complete slide as a finished 16:9 widescreen image. PALETTE LOCK: Use ONLY #0d1117 background, #58a6ff primary accent, #3fb950 secondary accent — never deviate from this palette regardless of any colour suggestion in the prompt text.',
+  'whiteboard': 'You are a professional slide designer using an educational illustrated style. Style: clean white background, navy blue (#1a3a6b) and warm gold (#c9a44a) as main colors, textbook-quality infographic illustrations, clear and warm educational feel. Slides should feel instructive and visually engaging. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image. PALETTE LOCK: Use ONLY #fdfcf9 background, #1a3a6b primary accent, #c9a44a secondary accent — never deviate from this palette regardless of any colour suggestion in the prompt text.',
+  'kami-serif': 'You are a professional slide designer with a classical academic aesthetic. Style: warm parchment (#f5f4ed) background, deep ink-blue (#1B365D) and antique gold (#8B6914) accents, scholarly refined typography with serif display fonts, authoritative academic gravitas. Slides should feel timeless and intellectually serious. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image. PALETTE LOCK: Use ONLY #f5f4ed background, #1B365D primary accent, #8B6914 secondary accent — never deviate from this palette regardless of any colour suggestion in the prompt text.',
 };
+
+export function buildCustomThemeSystemPrompt(colors: import('./types').CustomThemeColors): string {
+  return `You are a professional slide designer creating a custom-branded university presentation. Style: clean modern design, ${colors.bg} background, ${colors.primary} as the primary accent colour, ${colors.accent} as the secondary accent, strong typographic hierarchy with sans-serif fonts. Every slide must be polished and professional. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image. PALETTE LOCK: Use ONLY ${colors.bg} background, ${colors.primary} primary, ${colors.accent} secondary — never deviate from this palette regardless of any colour suggestion in the prompt text.`;
+}
 
 // ─── Slide layout descriptors (exported for UI prompt display) ───────────────
 export const SLIDE_LAYOUT_DESCRIPTORS: Record<string, string> = {
@@ -325,12 +329,17 @@ export function buildSlideImagePrompt(
   slide: AnySlide,
   themeKey: string,
   moduleTitle: string,
+  programName: string,
+  universityName: string,
+  customThemeColors?: import('./types').CustomThemeColors,
 ): { prompt: string; systemPrompt: string } {
-  const systemPrompt = THEME_STYLE_DESCRIPTORS[themeKey] ?? THEME_STYLE_DESCRIPTORS['modern-minimal'];
+  const systemPrompt = themeKey === 'custom' && customThemeColors
+    ? buildCustomThemeSystemPrompt(customThemeColors)
+    : (THEME_STYLE_DESCRIPTORS[themeKey] ?? THEME_STYLE_DESCRIPTORS['modern-minimal']);
   const intent = SLIDE_LAYOUT_DESCRIPTORS[slide.type] ?? '';
   const visual = (slide as { visualPrompt?: string }).visualPrompt ?? '';
   const prompt = [
-    `Create a presentation slide for a BBA university course on "${moduleTitle}".`,
+    `Create a presentation slide for a ${programName} course on "${moduleTitle}"${universityName ? ' at ' + universityName : ''}.`,
     intent,
     visual,
   ].filter(Boolean).join('\n');
@@ -377,6 +386,8 @@ export function buildContentPrompt(
   outcomes: string[] | undefined,
   slideSequence: string[],
   customPrompt: string,
+  programName: string,
+  universityName: string,
 ): string {
   const info = [
     `Title: ${title}`,
@@ -402,7 +413,7 @@ export function buildContentPrompt(
   const typeSchemas = `SLIDE TYPE SCHEMAS — generate EXACTLY these JSON shapes:
 
 title:
-{"type":"title","title":"max 8 words — module name","subtitle":"max 12 words — module hook","badge":"Sem ${semester} · Mod ${moduleNum}","visualPrompt":"FULL SLIDE DESCRIPTION: title text top-left in large bold font, subtitle below in medium weight, right side abstract decorative geometric shape in theme color, bottom-left BBA Online logo area, background color appropriate to theme. Include actual title and subtitle text."}
+{"type":"title","title":"max 8 words — module name","subtitle":"max 12 words — module hook","badge":"Sem ${semester} · Mod ${moduleNum}","visualPrompt":"FULL SLIDE DESCRIPTION: title text top-left in large bold font, subtitle below in medium weight, right side abstract decorative geometric shape in theme color, bottom-left ${programName}${universityName ? ' · ' + universityName : ''} branding area, background color appropriate to theme. Include actual title and subtitle text."}
 
 overview:
 {"type":"overview","eyebrow":"COURSE OVERVIEW","title":"max 6 words","goals":["goal 1 max 8 words","goal 2","goal 3","goal 4"],"agendaItems":["topic 1","topic 2","topic 3","topic 4","topic 5"],"visualPrompt":"FULL SLIDE DESCRIPTION: left half numbered goal list with 4 items rendered as text, right half topic cluster diagram with topic names visible as node labels, theme color accents. Include actual goal text and topic names."}
@@ -449,7 +460,7 @@ checklist:
 transition-recap:
 {"type":"transition-recap","eyebrow":"RECAP & PREVIEW","recapTitle":"What We Covered","recapPoints":["recap point 1","recap point 2","recap point 3"],"previewTitle":"Coming Up Next","previewPoints":["preview point 1","preview point 2","preview point 3"],"visualPrompt":"FULL SLIDE DESCRIPTION: left half (slightly darker background) shows Recap heading text and 3 recap bullet points, right half (lighter background) shows Preview heading text and 3 preview bullet points, vertical divider line with right-pointing arrow motif in center. Include actual recap and preview text."}`;
 
-  return `You are generating BBA university course presentation slides following the Design Thinking + Kolb Experiential Learning pedagogy framework. Return ONLY valid JSON. No markdown, no explanation, no <think> tags.
+  return `You are generating ${programName} course presentation slides at ${universityName || 'a university'} following the Design Thinking + Kolb Experiential Learning pedagogy framework. Return ONLY valid JSON. No markdown, no explanation, no <think> tags.
 
 MODULE INFORMATION:
 ${info}
@@ -470,7 +481,6 @@ CRITICAL RULES:
    - Actual body content (definitions, bullets, steps, etc.) as rendered text
    - Layout description (which elements are where)
    - Visual metaphor or diagram type
-   - Color mood and theme
    BAD: "abstract diagram of marketing concepts"
    GOOD: "Slide titled 'What is Digital Marketing?' at top. Left 55%: definition text 'Digital marketing uses online channels to reach target audiences', three bullets: Search & Social Media, Email & Content Marketing, Analytics & ROI. Right 45%: circular interconnected nodes diagram representing digital touchpoints, blue-violet gradient, clean white background."
 4. All text content must fit the slide — concise and scannable.
