@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Campus AI — Content Generation Studio',
+  title: 'UNAITED — A united workflow for educators',
   description:
-    'Generate BBA AI module content — Notes, PPTX, and Workbook — in the exact Campus AI teacher-voice and style.',
+    'Generate course content — Notes, PPTX, and Workbook — from your syllabus in seconds.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
