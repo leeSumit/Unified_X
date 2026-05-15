@@ -2,10 +2,19 @@ import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { buildPrompt } from '@/lib/generation-prompts';
 import type { ArtifactType, ParsedModule } from '@/lib/types';
+import { rateLimit, getIp } from '@/lib/rate-limit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(`generate:${getIp(request)}`, 5, 60 * 60 * 1000); // 5/hour
+  if (!rl.allowed) {
+    return new Response(
+      `Rate limit reached. Try again in ${Math.ceil(rl.retryAfterSecs / 60)} minute${rl.retryAfterSecs > 120 ? 's' : ''}.`,
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSecs) } }
+    );
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return new Response(
       'ANTHROPIC_API_KEY is not set. Copy .env.local.example to .env.local and add your key.',

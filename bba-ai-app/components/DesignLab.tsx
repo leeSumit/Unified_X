@@ -212,6 +212,11 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
 
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          setErrorMsg((data as { error?: string }).error || 'Rate limit reached. Please wait before generating again.');
+          setStatus('error');
+          return;
+        }
         setErrorMsg((data as { error?: string }).error || `HTTP ${res.status}`);
         setStatus('error');
         return;

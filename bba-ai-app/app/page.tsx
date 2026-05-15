@@ -148,6 +148,15 @@ export default function Home() {
       });
 
       if (!res.ok || !res.body) {
+        if (res.status === 429) {
+          const msg = await res.text();
+          setChatStep('selecting-artifact');
+          setMessages((prev) => [
+            ...prev,
+            { id: Date.now().toString(), role: 'assistant' as const, type: 'text' as const, content: msg || 'Rate limit reached. Please wait before generating again.' },
+          ]);
+          return;
+        }
         throw new Error('Generation failed');
       }
 
