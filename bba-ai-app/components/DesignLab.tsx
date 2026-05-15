@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ParsedModule, SlideState, SlideCount } from '@/lib/types';
 
 interface Props {
@@ -9,12 +9,9 @@ interface Props {
   onRestart: () => void;
 }
 
-const SLIDE_COUNTS: { value: SlideCount; label: string }[] = [
-  { value: 6,  label: '6 slides'  },
-  { value: 10, label: '10 slides' },
-  { value: 15, label: '15 slides' },
-  { value: 20, label: '20 slides' },
-  { value: 30, label: '30 slides' },
+const SLIDE_COUNTS: { value: SlideCount; label: string; description: string }[] = [
+  { value: 10, label: '10 slides', description: 'Quick overview — all topics, concise' },
+  { value: 20, label: '20 slides', description: 'Deep dive — full pedagogical treatment' },
 ];
 
 const DIRECTIONS = [
@@ -27,38 +24,33 @@ const DIRECTIONS = [
 ];
 
 const SLIDE_TYPE_LABELS: Record<string, string> = {
-  title: 'Title',
-  agenda: 'Agenda',
-  content: 'Content',
-  stats: 'Statistics',
-  'case-study': 'Case Study',
-  quote: 'Quote',
-  takeaways: 'Takeaways',
-  end: 'End',
-  diagram: 'Diagram',
+  'title': 'Title',
+  'overview': 'Overview',
+  'experience-trigger': 'Experience',
+  'reflection': 'Reflection',
+  'concept': 'Concept',
+  'process-flow': 'Process',
+  'comparison': 'Comparison',
+  'framework': 'Framework',
+  'worked-example': 'Worked Example',
+  'example-case': 'Case Study',
+  'exercise': 'Exercise',
+  'prototype-studio': 'Studio',
+  'test-feedback': 'Feedback',
+  'summary': 'Summary',
+  'checklist': 'Checklist',
+  'transition-recap': 'Transition',
 };
 
 type Status = 'idle' | 'streaming' | 'done' | 'error';
 
-interface WrapperInfo {
-  head: string;
-  tail: string;
-}
-
 function getSlideTitle(s: SlideState): string {
   const c = s.content;
   if (typeof c.title === 'string') return c.title;
-  if (typeof c.text === 'string') return c.text.slice(0, 40);
+  if (typeof c.scenarioTitle === 'string') return c.scenarioTitle;
+  if (typeof c.modelName === 'string') return c.modelName;
+  if (typeof c.brief === 'string') return String(c.brief).slice(0, 40);
   return SLIDE_TYPE_LABELS[s.type] ?? s.type;
-}
-
-function buildFullHtml(slides: (SlideState | undefined)[], wrapper: WrapperInfo): string {
-  const sections = slides
-    .filter((s): s is SlideState => !!s?.html)
-    .sort((a, b) => a.index - b.index)
-    .map(s => s.html)
-    .join('\n');
-  return wrapper.head + sections + wrapper.tail;
 }
 
 // ─── Edit form ────────────────────────────────────────────────────────────────
@@ -76,14 +68,14 @@ function EditField({ label, value, onChange }: { label: string; value: string; o
   );
 }
 
-function EditTextArea({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function EditTextArea({ label, value, onChange, rows = 3 }: { label: string; value: string; onChange: (v: string) => void; rows?: number }) {
   return (
     <div className="mb-3">
       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
-        rows={2}
+        rows={rows}
         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
       />
     </div>
@@ -99,12 +91,20 @@ function SlideEditForm({
 }) {
   const c = slide.content;
   const set = (key: string, val: unknown) => onChange({ ...c, [key]: val });
-
   const setArrayItem = (key: string, idx: number, val: string) => {
     const arr = [...((c[key] as string[]) ?? [])];
     arr[idx] = val;
     onChange({ ...c, [key]: arr });
   };
+
+  const VisualPromptField = () => (
+    <EditTextArea
+      label="Visual Prompt (edit to change image)"
+      value={String(c.visualPrompt ?? '')}
+      onChange={v => set('visualPrompt', v)}
+      rows={4}
+    />
+  );
 
   switch (slide.type) {
     case 'title':
@@ -113,116 +113,297 @@ function SlideEditForm({
           <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
           <EditField label="Subtitle" value={String(c.subtitle ?? '')} onChange={v => set('subtitle', v)} />
           <EditField label="Badge" value={String(c.badge ?? '')} onChange={v => set('badge', v)} />
+          <VisualPromptField />
         </>
       );
 
-    case 'agenda':
-      return (
-        <>
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.items as Array<{ n: string; label: string; desc: string }>) ?? []).map((item, i) => (
-            <div key={i} className="mb-3 pl-3 border-l-2 border-orange-200">
-              <p className="text-xs text-gray-400 mb-1">Item {i + 1}</p>
-              <EditField label="Label" value={item.label} onChange={v => {
-                const items = [...(c.items as typeof item[])];
-                items[i] = { ...item, label: v };
-                set('items', items);
-              }} />
-              <EditField label="Description" value={item.desc} onChange={v => {
-                const items = [...(c.items as typeof item[])];
-                items[i] = { ...item, desc: v };
-                set('items', items);
-              }} />
-            </div>
-          ))}
-        </>
-      );
-
-    case 'content':
+    case 'overview':
       return (
         <>
           <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
           <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.points as string[]) ?? []).map((pt, i) => (
-            <EditField key={i} label={`Point ${i + 1}`} value={pt} onChange={v => setArrayItem('points', i, v)} />
+          {((c.goals as string[]) ?? []).map((g, i) => (
+            <EditField key={i} label={`Goal ${i + 1}`} value={g} onChange={v => setArrayItem('goals', i, v)} />
           ))}
-          <EditTextArea label="Image Prompt (visual scene, no text)" value={String(c.imagePrompt ?? '')} onChange={v => set('imagePrompt', v)} />
+          {((c.agendaItems as string[]) ?? []).map((item, i) => (
+            <EditField key={i} label={`Agenda Item ${i + 1}`} value={item} onChange={v => setArrayItem('agendaItems', i, v)} />
+          ))}
+          <VisualPromptField />
         </>
       );
 
-    case 'stats':
+    case 'experience-trigger':
       return (
         <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Scenario Title" value={String(c.scenarioTitle ?? '')} onChange={v => set('scenarioTitle', v)} />
+          <EditTextArea label="Scenario" value={String(c.scenario ?? '')} onChange={v => set('scenario', v)} />
+          <EditField label="Question" value={String(c.question ?? '')} onChange={v => set('question', v)} />
+          <VisualPromptField />
+        </>
+      );
+
+    case 'reflection':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
           <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.stats as Array<{ value: string; label: string }>) ?? []).map((st, i) => (
+          {((c.discussionQuestions as string[]) ?? []).map((q, i) => (
+            <EditField key={i} label={`Question ${i + 1}`} value={q} onChange={v => setArrayItem('discussionQuestions', i, v)} />
+          ))}
+          <EditTextArea label="Insight" value={String(c.insight ?? '')} onChange={v => set('insight', v)} />
+          <VisualPromptField />
+        </>
+      );
+
+    case 'concept':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
+          <EditTextArea label="Definition" value={String(c.definition ?? '')} onChange={v => set('definition', v)} />
+          {((c.bullets as string[]) ?? []).map((b, i) => (
+            <EditField key={i} label={`Bullet ${i + 1}`} value={b} onChange={v => setArrayItem('bullets', i, v)} />
+          ))}
+          <VisualPromptField />
+        </>
+      );
+
+    case 'process-flow':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
+          {((c.steps as Array<{ label: string; summary: string }>) ?? []).map((step, i) => (
             <div key={i} className="mb-3 pl-3 border-l-2 border-orange-200">
-              <p className="text-xs text-gray-400 mb-1">Stat {i + 1}</p>
-              <EditField label="Value" value={st.value} onChange={v => {
-                const stats = [...(c.stats as typeof st[])];
-                stats[i] = { ...st, value: v };
-                set('stats', stats);
+              <p className="text-xs text-gray-400 mb-1">Step {i + 1}</p>
+              <EditField label="Label" value={step.label} onChange={v => {
+                const steps = [...(c.steps as typeof step[])];
+                steps[i] = { ...step, label: v };
+                set('steps', steps);
               }} />
-              <EditField label="Label" value={st.label} onChange={v => {
-                const stats = [...(c.stats as typeof st[])];
-                stats[i] = { ...st, label: v };
-                set('stats', stats);
+              <EditField label="Summary" value={step.summary} onChange={v => {
+                const steps = [...(c.steps as typeof step[])];
+                steps[i] = { ...step, summary: v };
+                set('steps', steps);
               }} />
             </div>
           ))}
+          <VisualPromptField />
         </>
       );
 
-    case 'case-study':
+    case 'comparison':
       return (
         <>
-          <EditField label="Tag" value={String(c.tag ?? '')} onChange={v => set('tag', v)} />
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
+          {((c.columns as Array<{ heading: string; points: string[] }>) ?? []).map((col, ci) => (
+            <div key={ci} className="mb-3 pl-3 border-l-2 border-orange-200">
+              <p className="text-xs text-gray-400 mb-1">Column {ci + 1}</p>
+              <EditField label="Heading" value={col.heading} onChange={v => {
+                const cols = [...(c.columns as typeof col[])];
+                cols[ci] = { ...col, heading: v };
+                set('columns', cols);
+              }} />
+              {col.points.map((pt, pi) => (
+                <EditField key={pi} label={`Point ${pi + 1}`} value={pt} onChange={v => {
+                  const cols = [...(c.columns as typeof col[])];
+                  const pts = [...col.points];
+                  pts[pi] = v;
+                  cols[ci] = { ...col, points: pts };
+                  set('columns', cols);
+                }} />
+              ))}
+            </div>
+          ))}
+          <VisualPromptField />
+        </>
+      );
+
+    case 'framework':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
+          <EditField label="Model Name" value={String(c.modelName ?? '')} onChange={v => set('modelName', v)} />
+          {((c.segments as Array<{ label: string; description: string }>) ?? []).map((seg, i) => (
+            <div key={i} className="mb-3 pl-3 border-l-2 border-orange-200">
+              <p className="text-xs text-gray-400 mb-1">Segment {i + 1}</p>
+              <EditField label="Label" value={seg.label} onChange={v => {
+                const segs = [...(c.segments as typeof seg[])];
+                segs[i] = { ...seg, label: v };
+                set('segments', segs);
+              }} />
+              <EditField label="Description" value={seg.description} onChange={v => {
+                const segs = [...(c.segments as typeof seg[])];
+                segs[i] = { ...seg, description: v };
+                set('segments', segs);
+              }} />
+            </div>
+          ))}
+          <VisualPromptField />
+        </>
+      );
+
+    case 'worked-example':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
+          <EditTextArea label="Problem" value={String(c.problem ?? '')} onChange={v => set('problem', v)} />
+          {((c.process as string[]) ?? []).map((p, i) => (
+            <EditField key={i} label={`Process Step ${i + 1}`} value={p} onChange={v => setArrayItem('process', i, v)} />
+          ))}
+          <EditTextArea label="Result" value={String(c.result ?? '')} onChange={v => set('result', v)} />
+          <VisualPromptField />
+        </>
+      );
+
+    case 'example-case':
+      return (
+        <>
+          <EditField label="Tag (India or Global)" value={String(c.tag ?? '')} onChange={v => set('tag', v)} />
           <EditField label="Company" value={String(c.company ?? '')} onChange={v => set('company', v)} />
-          <EditField label="Headline" value={String(c.headline ?? '')} onChange={v => set('headline', v)} />
-          <EditTextArea label="Story" value={String(c.story ?? '')} onChange={v => set('story', v)} />
-          <EditField label="Result" value={String(c.result ?? '')} onChange={v => set('result', v)} />
-          <EditTextArea label="Image Prompt (visual scene, no text)" value={String(c.imagePrompt ?? '')} onChange={v => set('imagePrompt', v)} />
+          <EditTextArea label="Scenario" value={String(c.scenario ?? '')} onChange={v => set('scenario', v)} />
+          <EditField label="Question" value={String(c.question ?? '')} onChange={v => set('question', v)} />
+          <EditField label="Outcome" value={String(c.outcome ?? '')} onChange={v => set('outcome', v)} />
+          <VisualPromptField />
         </>
       );
 
-    case 'quote':
-      return (
-        <>
-          <EditTextArea label="Quote Text" value={String(c.text ?? '')} onChange={v => set('text', v)} />
-          <EditField label="Author" value={String(c.author ?? '')} onChange={v => set('author', v)} />
-          <EditField label="Role" value={String(c.role ?? '')} onChange={v => set('role', v)} />
-        </>
-      );
-
-    case 'takeaways':
-      return (
-        <>
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.items as string[]) ?? []).map((it, i) => (
-            <EditField key={i} label={`Takeaway ${i + 1}`} value={it} onChange={v => setArrayItem('items', i, v)} />
-          ))}
-        </>
-      );
-
-    case 'diagram':
+    case 'exercise':
       return (
         <>
           <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
           <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          <EditTextArea label="Diagram Description (what to diagram)" value={String(c.description ?? '')} onChange={v => set('description', v)} />
+          <EditTextArea label="Task Instructions" value={String(c.taskInstructions ?? '')} onChange={v => set('taskInstructions', v)} />
+          {((c.steps as string[]) ?? []).map((s, i) => (
+            <EditField key={i} label={`Step ${i + 1}`} value={s} onChange={v => setArrayItem('steps', i, v)} />
+          ))}
+          <EditField label="Time Allotted" value={String(c.timeAllotted ?? '')} onChange={v => set('timeAllotted', v)} />
+          <VisualPromptField />
         </>
       );
 
-    case 'end':
+    case 'prototype-studio':
       return (
         <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditTextArea label="Brief" value={String(c.brief ?? '')} onChange={v => set('brief', v)} />
+          {((c.makingSteps as string[]) ?? []).map((s, i) => (
+            <EditField key={i} label={`Making Step ${i + 1}`} value={s} onChange={v => setArrayItem('makingSteps', i, v)} />
+          ))}
+          {((c.templateBoxes as string[]) ?? []).map((b, i) => (
+            <EditField key={i} label={`Template Box ${i + 1}`} value={b} onChange={v => setArrayItem('templateBoxes', i, v)} />
+          ))}
+          <VisualPromptField />
+        </>
+      );
+
+    case 'test-feedback':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
           <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          <EditField label="Next Module" value={String(c.next ?? '')} onChange={v => set('next', v)} />
+          {((c.criteria as Array<{ label: string; description: string }>) ?? []).map((cr, i) => (
+            <div key={i} className="mb-3 pl-3 border-l-2 border-orange-200">
+              <p className="text-xs text-gray-400 mb-1">Criterion {i + 1}</p>
+              <EditField label="Label" value={cr.label} onChange={v => {
+                const crit = [...(c.criteria as typeof cr[])];
+                crit[i] = { ...cr, label: v };
+                set('criteria', crit);
+              }} />
+              <EditField label="Description" value={cr.description} onChange={v => {
+                const crit = [...(c.criteria as typeof cr[])];
+                crit[i] = { ...cr, description: v };
+                set('criteria', crit);
+              }} />
+            </div>
+          ))}
+          {(() => {
+            const fe = (c.feedbackExamples as { good: string; poor: string }) ?? { good: '', poor: '' };
+            return (
+              <>
+                <EditTextArea label="Good Example" value={fe.good} onChange={v => set('feedbackExamples', { ...fe, good: v })} />
+                <EditTextArea label="Poor Example" value={fe.poor} onChange={v => set('feedbackExamples', { ...fe, poor: v })} />
+              </>
+            );
+          })()}
+          <VisualPromptField />
+        </>
+      );
+
+    case 'summary':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
+          {((c.takeaways as string[]) ?? []).map((t, i) => (
+            <EditField key={i} label={`Takeaway ${i + 1}`} value={t} onChange={v => setArrayItem('takeaways', i, v)} />
+          ))}
+          <VisualPromptField />
+        </>
+      );
+
+    case 'checklist':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
+          {((c.doItems as string[]) ?? []).map((d, i) => (
+            <EditField key={i} label={`Do ${i + 1}`} value={d} onChange={v => setArrayItem('doItems', i, v)} />
+          ))}
+          {((c.avoidItems as string[]) ?? []).map((a, i) => (
+            <EditField key={i} label={`Avoid ${i + 1}`} value={a} onChange={v => setArrayItem('avoidItems', i, v)} />
+          ))}
+          <VisualPromptField />
+        </>
+      );
+
+    case 'transition-recap':
+      return (
+        <>
+          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
+          <EditField label="Recap Title" value={String(c.recapTitle ?? '')} onChange={v => set('recapTitle', v)} />
+          {((c.recapPoints as string[]) ?? []).map((p, i) => (
+            <EditField key={i} label={`Recap Point ${i + 1}`} value={p} onChange={v => setArrayItem('recapPoints', i, v)} />
+          ))}
+          <EditField label="Preview Title" value={String(c.previewTitle ?? '')} onChange={v => set('previewTitle', v)} />
+          {((c.previewPoints as string[]) ?? []).map((p, i) => (
+            <EditField key={i} label={`Preview Point ${i + 1}`} value={p} onChange={v => setArrayItem('previewPoints', i, v)} />
+          ))}
+          <VisualPromptField />
         </>
       );
 
     default:
       return <p className="text-xs text-gray-400">No editable fields for this slide type.</p>;
   }
+}
+
+// ─── Null image fallback card ────────────────────────────────────────────────
+function SlideImageFallback({ slide }: { slide: SlideState }) {
+  const c = slide.content;
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 p-8">
+      <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
+        <svg className="w-6 h-6 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </div>
+      <p className="text-sm font-semibold text-gray-600 mb-1">
+        {SLIDE_TYPE_LABELS[slide.type] ?? slide.type}
+      </p>
+      {typeof c.title === 'string' && (
+        <p className="text-xs text-gray-500 text-center max-w-xs">{c.title}</p>
+      )}
+      {typeof c.scenarioTitle === 'string' && (
+        <p className="text-xs text-gray-500 text-center max-w-xs">{c.scenarioTitle}</p>
+      )}
+      <p className="text-xs text-orange-400 mt-2">Image generation failed — click edit to regenerate</p>
+    </div>
+  );
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -233,18 +414,41 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
   const [status, setStatus] = useState<Status>('idle');
   const [slides, setSlides] = useState<(SlideState | undefined)[]>([]);
   const [totalSlides, setTotalSlides] = useState(0);
-  const [wrapper, setWrapper] = useState<WrapperInfo | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState<Record<string, unknown>>({});
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
-  const doneCount = slides.filter(s => s?.status === 'done').length;
-  const fullHtml = wrapper && doneCount > 0 ? buildFullHtml(slides, wrapper) : '';
+  const doneSlides = slides.filter((s): s is SlideState => !!s && s.status === 'done');
+  const doneCount = doneSlides.length;
 
   const selectedDir = DIRECTIONS.find(d => d.id === direction)!;
+
+  // ─── Keyboard navigation ───────────────────────────────────────────────────
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (editingIndex !== null) return; // don't nav when editing
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        setCurrentSlide(prev => Math.min(prev + 1, doneSlides.length - 1));
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCurrentSlide(prev => Math.max(prev - 1, 0));
+      } else if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [doneSlides.length, editingIndex, isFullscreen]);
+
+  // Reset currentSlide when new generation starts
+  useEffect(() => {
+    if (status === 'streaming') setCurrentSlide(0);
+  }, [status]);
 
   async function handleGenerate() {
     const controller = new AbortController();
@@ -252,9 +456,9 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
     setStatus('streaming');
     setSlides([]);
     setTotalSlides(0);
-    setWrapper(null);
     setErrorMsg('');
     setEditingIndex(null);
+    setCurrentSlide(0);
 
     try {
       const res = await fetch('/api/design-lab', {
@@ -298,9 +502,9 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
             }
 
             if (event.event === 'init') {
-              setTotalSlides(Number(event.total));
-              setWrapper(event.wrapper as WrapperInfo);
-              setSlides(new Array(Number(event.total)).fill(undefined));
+              const total = Number(event.total);
+              setTotalSlides(total);
+              setSlides(new Array(total).fill(undefined));
             } else if (event.event === 'slide') {
               const idx = Number(event.index);
               setSlides(prev => {
@@ -309,7 +513,6 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                   index: idx,
                   type: String(event.type),
                   content: event.content as Record<string, unknown>,
-                  html: String(event.html),
                   imageUrl: (event.imageUrl as string | null) ?? null,
                   status: 'done',
                 };
@@ -338,16 +541,27 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
     setStatus('idle');
   }
 
-  function handleDownload() {
-    if (!fullHtml) return;
+  async function handleDownload() {
+    if (doneSlides.length === 0) return;
     const slug = module.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const blob = new Blob([fullHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${slug}-slides.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    for (let i = 0; i < doneSlides.length; i++) {
+      const slide = doneSlides[i];
+      if (!slide.imageUrl) continue;
+      try {
+        const res = await fetch(slide.imageUrl);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${slug}-slide-${String(i + 1).padStart(2, '0')}-${slide.type}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        // Small delay to avoid browser blocking multiple downloads
+        await new Promise(r => setTimeout(r, 200));
+      } catch {
+        // Skip slides that fail to download
+      }
+    }
   }
 
   const openEdit = useCallback((slide: SlideState) => {
@@ -375,7 +589,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
           module,
         }),
       });
-      const data = await res.json() as { html?: string; imageUrl?: string | null; content?: Record<string, unknown>; error?: string };
+      const data = await res.json() as { imageUrl?: string | null; content?: Record<string, unknown>; error?: string };
       if (data.error) throw new Error(data.error);
 
       setSlides(prev => {
@@ -384,7 +598,6 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
           index: editingIndex,
           type: slides[editingIndex]?.type ?? '',
           content: data.content ?? editContent,
-          html: data.html ?? '',
           imageUrl: data.imageUrl ?? null,
           status: 'done',
         };
@@ -404,6 +617,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
   }
 
   const editingSlide = editingIndex !== null ? slides[editingIndex] : undefined;
+  const currentDoneSlide = doneSlides[currentSlide];
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -434,18 +648,19 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
         <div className="lg:col-span-2 space-y-4">
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Slide Count</p>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-3 flex-wrap">
               {SLIDE_COUNTS.map(sc => (
                 <button
                   key={sc.value}
                   onClick={() => setSlideCount(sc.value)}
-                  className={`px-4 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  className={`px-4 py-2.5 rounded-xl border-2 text-left transition-all ${
                     slideCount === sc.value
                       ? 'border-orange-500 bg-orange-50 text-orange-700'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                   }`}
                 >
-                  {sc.label}
+                  <div className="text-sm font-semibold">{sc.label}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{sc.description}</div>
                 </button>
               ))}
             </div>
@@ -519,16 +734,16 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
             {status === 'done' ? 'Regenerate All' : 'Generate Slides'}
           </button>
         )}
-        {status === 'done' && fullHtml && (
+        {status === 'done' && doneCount > 0 && (
           <>
             <button
               onClick={handleDownload}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-300 bg-white transition-all"
             >
-              ↓ Download HTML
+              ↓ Download Images
             </button>
             <button
-              onClick={() => setIsFullscreen(true)}
+              onClick={() => { setCurrentSlide(0); setIsFullscreen(true); }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-300 bg-white transition-all"
             >
               ⤢ Present
@@ -544,7 +759,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
             <p className="text-sm font-semibold text-gray-700">
               {status === 'streaming'
                 ? `Generating… ${doneCount} / ${totalSlides} slides ready`
-                : `${doneCount} slides — click any to edit`}
+                : `${doneCount} slides — click any to preview or edit`}
             </p>
             {status === 'streaming' && (
               <div className="flex items-center gap-1.5">
@@ -554,7 +769,6 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
             )}
           </div>
 
-          {/* Progress bar */}
           {status === 'streaming' && (
             <div className="h-1 bg-gray-100 rounded-full mb-3 overflow-hidden">
               <div
@@ -564,10 +778,11 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
             </div>
           )}
 
-          {/* Slide cards grid */}
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
             {Array.from({ length: totalSlides }).map((_, i) => {
               const slide = slides[i];
+              const doneIdx = doneSlides.findIndex(s => s.index === i);
+              const isCurrentPreview = doneIdx === currentSlide;
               const isEditing = editingIndex === i;
               const isDone = slide?.status === 'done';
               const isRegen = slide?.status === 'regenerating';
@@ -575,10 +790,15 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
               return (
                 <button
                   key={i}
-                  onClick={() => isDone && slide ? openEdit(slide) : undefined}
+                  onClick={() => {
+                    if (isDone && slide) {
+                      openEdit(slide);
+                      if (doneIdx >= 0) setCurrentSlide(doneIdx);
+                    }
+                  }}
                   disabled={!isDone}
                   className={`p-2.5 rounded-xl border-2 text-left transition-all ${
-                    isEditing
+                    isEditing || isCurrentPreview
                       ? 'border-orange-500 bg-orange-50'
                       : isDone
                       ? 'border-gray-200 bg-white hover:border-orange-300 hover:shadow-sm cursor-pointer'
@@ -595,7 +815,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
                     ) : isDone ? (
-                      <div className="w-2 h-2 rounded-full bg-green-400" />
+                      <div className={`w-2 h-2 rounded-full ${slide?.imageUrl ? 'bg-green-400' : 'bg-orange-300'}`} />
                     ) : (
                       <div className="w-2 h-2 rounded-full bg-gray-200 animate-pulse" />
                     )}
@@ -621,7 +841,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
 
       {/* ── Edit panel ── */}
       {editingIndex !== null && editingSlide?.status === 'done' && (
-        <div className="mb-5 p-4 border-2 border-orange-200 rounded-2xl bg-orange-50">
+        <div className="mb-5 p-4 border-2 border-orange-200 rounded-2xl bg-orange-50 max-h-96 overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
             <div>
               <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">
@@ -663,14 +883,14 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Regenerate Slide
+                Regenerate Slide Image
               </>
             )}
           </button>
         </div>
       )}
 
-      {/* ── Main preview ── */}
+      {/* ── Main preview (image carousel) ── */}
       <div className="rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
         <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center gap-2">
           <div className="flex gap-1.5">
@@ -681,9 +901,30 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
           <span className="text-xs text-gray-400 flex-1 text-center truncate">
             {status === 'idle' && 'Configure above, then click Generate Slides'}
             {status === 'streaming' && `Generating ${selectedDir.label} deck — ${doneCount}/${totalSlides} slides`}
-            {status === 'done' && `${selectedDir.label} · ${doneCount} slides · ← → arrow keys to navigate`}
+            {status === 'done' && `${selectedDir.label} · ${currentSlide + 1} / ${doneSlides.length} · ← → to navigate`}
             {status === 'error' && 'Generation failed'}
           </span>
+          {doneSlides.length > 0 && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setCurrentSlide(prev => Math.max(prev - 1, 0))}
+                disabled={currentSlide === 0}
+                className="w-6 h-6 rounded flex items-center justify-center text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-default"
+              >
+                ←
+              </button>
+              <span className="text-xs text-gray-500 tabular-nums">
+                {currentSlide + 1}/{doneSlides.length}
+              </span>
+              <button
+                onClick={() => setCurrentSlide(prev => Math.min(prev + 1, doneSlides.length - 1))}
+                disabled={currentSlide >= doneSlides.length - 1}
+                className="w-6 h-6 rounded flex items-center justify-center text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-default"
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
 
         <div style={{ position: 'relative', paddingTop: '56.25%', background: '#f8f8f8' }}>
@@ -697,18 +938,18 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                   </svg>
                 </div>
                 <p className="text-sm font-semibold text-gray-600">Pick a style and slide count, then Generate</p>
-                <p className="text-xs text-gray-400 mt-1">Slides stream in progressively as they&apos;re ready</p>
+                <p className="text-xs text-gray-400 mt-1">All slide images generate in parallel</p>
               </div>
             )}
 
-            {status === 'streaming' && !fullHtml && (
+            {status === 'streaming' && doneSlides.length === 0 && (
               <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50">
                 <svg className="animate-spin h-10 w-10 text-brand-purple mb-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
                 <p className="text-sm font-semibold text-gray-700">Designing your slides…</p>
-                <p className="text-xs text-gray-400 mt-1">First slides appear shortly</p>
+                <p className="text-xs text-gray-400 mt-1">Claude is writing content, images will follow</p>
               </div>
             )}
 
@@ -727,14 +968,17 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
               </div>
             )}
 
-            {fullHtml && (
-              <iframe
-                key={fullHtml.length}
-                srcDoc={fullHtml}
-                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-                sandbox="allow-scripts allow-same-origin"
-                title="Slide Deck Preview"
-              />
+            {currentDoneSlide && (
+              currentDoneSlide.imageUrl ? (
+                <img
+                  key={currentDoneSlide.index}
+                  src={currentDoneSlide.imageUrl}
+                  alt={`Slide ${currentSlide + 1}: ${currentDoneSlide.type}`}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                />
+              ) : (
+                <SlideImageFallback slide={currentDoneSlide} />
+              )
             )}
           </div>
         </div>
@@ -753,28 +997,70 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
         </button>
       </div>
 
-      {/* ── Fullscreen presentation ── */}
-      {isFullscreen && fullHtml && (
+      {/* ── Fullscreen presentation (image carousel) ── */}
+      {isFullscreen && doneSlides.length > 0 && (
         <div className="fixed inset-0 z-50 bg-black flex flex-col">
           <div className="flex items-center justify-between px-4 py-2 bg-black/90 border-b border-white/10 flex-shrink-0">
-            <span className="text-white/60 text-xs">{module.title} · {selectedDir.label} · Use ← → to navigate</span>
-            <div className="flex gap-3">
-              <button onClick={handleDownload} className="text-white/60 hover:text-white text-xs px-3 py-1 rounded border border-white/20 hover:border-white/50 transition-all">
-                Download HTML
+            <span className="text-white/60 text-xs">
+              {module.title} · {selectedDir.label} · {currentSlide + 1} / {doneSlides.length}
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCurrentSlide(prev => Math.max(prev - 1, 0))}
+                disabled={currentSlide === 0}
+                className="text-white/60 hover:text-white text-xs px-3 py-1 rounded border border-white/20 hover:border-white/50 transition-all disabled:opacity-30 disabled:cursor-default"
+              >
+                ← Prev
               </button>
-              <button onClick={() => setIsFullscreen(false)} className="text-white/60 hover:text-white text-xs px-3 py-1 rounded border border-white/20 hover:border-white/50 transition-all">
+              <button
+                onClick={() => setCurrentSlide(prev => Math.min(prev + 1, doneSlides.length - 1))}
+                disabled={currentSlide >= doneSlides.length - 1}
+                className="text-white/60 hover:text-white text-xs px-3 py-1 rounded border border-white/20 hover:border-white/50 transition-all disabled:opacity-30 disabled:cursor-default"
+              >
+                Next →
+              </button>
+              <button
+                onClick={handleDownload}
+                className="text-white/60 hover:text-white text-xs px-3 py-1 rounded border border-white/20 hover:border-white/50 transition-all"
+              >
+                ↓ Images
+              </button>
+              <button
+                onClick={() => setIsFullscreen(false)}
+                className="text-white/60 hover:text-white text-xs px-3 py-1 rounded border border-white/20 hover:border-white/50 transition-all"
+              >
                 ✕ Exit
               </button>
             </div>
           </div>
-          <iframe
-            key={`fs-${fullHtml.length}`}
-            srcDoc={fullHtml}
-            className="flex-1 w-full"
-            style={{ border: 'none' }}
-            sandbox="allow-scripts allow-same-origin"
-            title="Fullscreen Presentation"
-          />
+          <div className="flex-1 flex items-center justify-center bg-black">
+            {(() => {
+              const fs = doneSlides[currentSlide];
+              if (!fs) return null;
+              return fs.imageUrl ? (
+                <img
+                  key={fs.index}
+                  src={fs.imageUrl}
+                  alt={`Slide ${currentSlide + 1}`}
+                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                />
+              ) : (
+                <div className="text-white/40 text-sm">No image for this slide</div>
+              );
+            })()}
+          </div>
+          {/* Dot navigation */}
+          <div className="flex items-center justify-center gap-1 py-2 bg-black/90 flex-shrink-0">
+            {doneSlides.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentSlide(i)}
+                className={`w-1.5 h-1.5 rounded-full transition-all ${
+                  i === currentSlide ? 'bg-white' : 'bg-white/30 hover:bg-white/60'
+                }`}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
