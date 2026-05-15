@@ -6,6 +6,10 @@ node_modules/
 out/
 
 # Environment (never commit real keys)
+.env
+.env.*
+!.env.example
+!.env.template
 .env.local
 .env.*.local
 
