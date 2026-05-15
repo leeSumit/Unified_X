@@ -16,13 +16,12 @@ export type TemplateId = 'campus-ai' | 'clean' | 'whiteboard';
 
 export type WizardStep = 'input' | 'modules' | 'artifact' | 'generate' | 'design-lab';
 
-export type SlideCount = 6 | 10 | 15 | 20 | 30;
+export type SlideCount = 10 | 20;
 
 export interface SlideState {
   index: number;
   type: string;
   content: Record<string, unknown>;
-  html: string;
   imageUrl: string | null;
   status: 'pending' | 'done' | 'regenerating' | 'error';
 }

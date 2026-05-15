@@ -52,11 +52,11 @@ export const DIRECTIONS: Record<string, DirectionConfig> = {
   },
   'whiteboard': {
     label: 'Whiteboard',
-    primaryColor: '#4a90d9',
+    primaryColor: '#1a3a6b',
     bg: '#fafafa',
-    accent: '#4a90d9',
-    fonts: `@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');`,
-    tokens: `--bg:#ffffff;--bg-soft:#f8f8f8;--surface:#ffffff;--surface-2:#f5f5f5;--border:#cccccc;--text-1:#1a1a1a;--text-2:#444444;--text-3:#888888;--accent:#4a90d9;--accent-2:#e74c3c;--accent-3:rgba(74,144,217,.1);--wb-red:#e74c3c;--wb-blue:#4a90d9;--wb-yellow:#f1c40f;--wb-green:#2ecc71;--grad:linear-gradient(135deg,#4a90d9,#e74c3c);--font-sans:'Inter',system-ui,sans-serif;--font-display:'Caveat',cursive;--n-size:80px;--n-color:#1a1a1a;`,
+    accent: '#1a3a6b',
+    fonts: `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600&family=Inter:wght@400;500;600&display=swap');`,
+    tokens: `--bg:#fdfcf9;--bg-soft:#f8f7f2;--surface:#ffffff;--surface-2:#f5f3ee;--border:#ddd9ce;--text-1:#1a1a2e;--text-2:#4a5068;--text-3:#8892a4;--accent:#1a3a6b;--accent-2:#c9a44a;--accent-3:rgba(26,58,107,.1);--wb-navy:#1a3a6b;--wb-gold:#c9a44a;--wb-yellow:#f1c40f;--wb-green:#2ecc71;--grad:linear-gradient(135deg,#1a3a6b,#c9a44a);--font-sans:'Inter',system-ui,sans-serif;--font-display:'Plus Jakarta Sans',system-ui,sans-serif;--n-size:80px;--n-color:#1a3a6b;`,
     imageStyleAnchor: `Clean educational illustration, textbook diagram style, white background, flat vector subject matter, hand-drawn infographic aesthetic, primary color accents (blue, red, yellow). NO TEXT. NO WORDS. NO LETTERS. NO LABELS. Purely visual illustration.`,
   },
   'kami-serif': {
@@ -84,20 +84,21 @@ export const WB = {
 export const BASE_CSS = `*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text-1);font-family:var(--font-sans);-webkit-font-smoothing:antialiased}
 .deck{position:relative;width:100%;height:100%;overflow:hidden}
-.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:6% 7% 8%;opacity:0;pointer-events:none;transition:opacity .35s ease,transform .35s ease;transform:translateX(4%);background:var(--bg)}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:9% 7% 9%;opacity:0;pointer-events:none;transition:opacity .35s ease,transform .35s ease;transform:translateX(4%);background:var(--bg)}
 .slide.active{opacity:1;pointer-events:auto;transform:translateX(0);z-index:2}
 .slide.prev{transform:translateX(-4%);opacity:0}
 .h1{font-family:var(--font-display);font-size:clamp(34px,5.2vw,68px);line-height:1.05;font-weight:800;letter-spacing:-.04em}
 .h2{font-family:var(--font-display);font-size:clamp(22px,3.6vw,48px);line-height:1.1;font-weight:700;letter-spacing:-.03em}
-.lede{font-size:clamp(14px,1.9vw,22px);line-height:1.6;color:var(--text-2);font-weight:300}
-.eyebrow{font-size:clamp(10px,1vw,12px);font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:10px}
+.lede{font-size:clamp(15px,2vw,24px);line-height:1.6;color:var(--text-2);font-weight:400}
+.eyebrow{font-size:clamp(11px,1.1vw,13px);font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:10px}
 .kicker{font-size:clamp(10px,.9vw,12px);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;display:block}
 .gradient-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-.accent-bar{width:44px;height:4px;background:var(--grad);border-radius:99px;margin-bottom:14px}
+.accent-bar{width:56px;height:5px;background:var(--grad);border-radius:99px;margin-bottom:16px;display:flex;gap:4px}
+.accent-bar::after{content:'';display:block;width:8px;height:5px;background:var(--accent-2);border-radius:99px;margin-left:6px;opacity:.6}
 .metric{display:flex;flex-direction:column;align-items:flex-start}
 .metric .n{font-size:var(--n-size,80px);font-weight:800;line-height:1;letter-spacing:-.04em;color:var(--n-color,var(--accent));font-family:var(--font-display)}
 .metric .l{font-size:clamp(11px,1.2vw,14px);color:var(--text-2);font-weight:500;margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,.04),0 4px 12px rgba(26,58,107,.04)}
 .card-accent{border-left:4px solid var(--accent)}
 .card-soft{background:var(--surface-2);border-color:transparent}
 .card-dark{background:var(--accent);color:#fff;border:none}
@@ -111,6 +112,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .chrome{position:absolute;top:18px;left:28px;right:28px;display:flex;align-items:center;justify-content:space-between;font-size:clamp(9px,.9vw,11px);color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;z-index:10;pointer-events:none}
 .counter::before{content:attr(data-n)}
 .counter::after{content:" / " attr(data-t)}
+.slide-logo{position:absolute;top:14px;left:22px;height:30px;z-index:11;pointer-events:none;display:flex;align-items:center;gap:8px}
+.slide-logo-mark{width:30px;height:30px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.slide-logo-mark svg{width:18px;height:18px}
+.slide-logo-wordmark{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-family:var(--font-sans);line-height:1}
+.slide-footer{position:absolute;bottom:0;left:0;right:0;height:26px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font-size:10px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;border-top:1px solid var(--border);z-index:10;pointer-events:none;background:var(--bg)}
 .pbar{position:fixed;bottom:0;left:0;right:0;height:3px;z-index:20}
 .pbar span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s ease}
 .nbtn{position:absolute;bottom:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:5px 16px;cursor:pointer;color:var(--text-2);font-size:clamp(11px,1.1vw,13px);z-index:30;font-family:var(--font-sans);transition:all .15s;font-weight:500}
@@ -124,19 +130,19 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .agenda-num{font-size:clamp(20px,2.6vw,34px);font-weight:800;line-height:1;color:var(--accent);font-family:var(--font-display);flex-shrink:0;width:38px}
 .agenda-label{font-size:clamp(12px,1.4vw,15px);font-weight:600;color:var(--text-1);margin-bottom:2px}
 .agenda-desc{font-size:clamp(10px,1.1vw,12px);color:var(--text-2)}
-.content-body{display:flex;gap:4%;align-items:center;height:calc(100% - 56px)}
+.content-body{display:flex;gap:4%;align-items:center;height:calc(100% - 110px)}
 .content-left{flex:0 0 52%}
 .content-right{flex:0 0 44%;height:68%;border-radius:14px;overflow:hidden;background:var(--surface-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border)}
 .content-right img{width:100%;height:100%;object-fit:cover}
 .content-right svg{max-width:100%;max-height:100%;padding:12px}
-.bullet-list{list-style:none;padding:0;margin-top:12px}
-.bullet-list li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)}
+.bullet-list{list-style:none;padding:0;margin-top:14px}
+.bullet-list li{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
 .bullet-list li:last-child{border-bottom:none}
-.bullet-list li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:6px}
-.bullet-list li span{font-size:clamp(12px,1.5vw,16px);color:var(--text-2);line-height:1.5}
+.bullet-list li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent-2);flex-shrink:0;margin-top:7px}
+.bullet-list li span{font-size:clamp(13px,1.6vw,17px);color:var(--text-2);line-height:1.6}
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:22px}
-.stat-card{padding:20px 18px;border-radius:14px;border:1px solid var(--border);background:var(--surface)}
-.cs-body{display:flex;gap:4%;height:calc(100% - 56px);align-items:center}
+.stat-card{padding:20px 18px;border-radius:14px;border:1px solid var(--border);background:var(--surface);box-shadow:0 2px 8px rgba(26,58,107,.06)}
+.cs-body{display:flex;gap:4%;height:calc(100% - 110px);align-items:center}
 .cs-left{flex:0 0 52%}
 .cs-right{flex:0 0 44%;height:68%;border-radius:14px;overflow:hidden;background:var(--surface-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border)}
 .cs-right img{width:100%;height:100%;object-fit:cover}
@@ -162,27 +168,33 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .wb-corner.tr{top:14px;right:14px}
 .wb-corner.bl{bottom:38px;left:14px}
 .wb-corner.br{bottom:38px;right:14px}
-.diagram-body{display:flex;gap:4%;align-items:center;height:calc(100% - 56px)}
+.diagram-body{display:flex;gap:4%;align-items:center;height:calc(100% - 110px)}
 .diagram-left{flex:0 0 34%}
 .diagram-right{flex:1;height:80%;border-radius:14px;overflow:hidden;background:var(--surface-2);display:flex;align-items:center;justify-content:center;border:1px solid var(--border);padding:16px}
-.diagram-right svg{max-width:100%;max-height:100%}`;
+.diagram-right svg{max-width:100%;max-height:100%}
+.wb-dot-grid{position:absolute;inset:0;background-image:radial-gradient(circle,rgba(26,58,107,.06) 1px,transparent 1px);background-size:28px 28px;pointer-events:none;z-index:0}
+.tk-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.tk-card-2{padding:16px 20px;border-radius:12px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:flex-start;gap:12px}
+.tk-num-2{font-size:clamp(24px,3.2vw,38px);font-weight:800;color:var(--accent);line-height:1;font-family:var(--font-display);flex-shrink:0;width:36px}
+.tk-text-2{font-size:clamp(12px,1.4vw,15px);color:var(--text-2);line-height:1.5;padding-top:4px}`;
 
-export const WB_EXTRA_CSS = `.h1,.h2{font-family:'Caveat',cursive!important;letter-spacing:0!important}
-.agenda-num{font-family:'Caveat',cursive!important;font-size:clamp(28px,4vw,52px)!important;color:#1a1a1a!important}
-.metric .n{font-family:'Caveat',cursive!important;color:#1a1a1a!important}
-.end-title{font-family:'Caveat',cursive!important}
-.tk-num{font-family:'Caveat',cursive!important;color:#1a1a1a!important}
-.quote-text{font-family:'Caveat',cursive!important;font-size:clamp(22px,3.5vw,46px)!important}
-.quote-mark{color:#e74c3c!important;opacity:.35!important}
-.card,.tk-card,.stat-card{border:2px dashed #4a90d9!important}
-.card-accent{border-left:none!important;border:2px dashed #4a90d9!important}
-.card-soft,.agenda-item{background:#fafafa!important;border:2px dashed #cccccc!important}
-.bullet-list li::before{background:#e74c3c!important}
-.accent-bar{background:#e74c3c!important}
-.eyebrow,.kicker{color:#e74c3c!important}
-.cs-result{background:rgba(74,144,217,.1)!important;color:#4a90d9!important;border-color:rgba(74,144,217,.2)!important}
-.nbtn:hover{background:#4a90d9!important;border-color:#4a90d9!important}
-.content-right,.cs-right{border:2px dashed #4a90d9!important}`;
+export const WB_EXTRA_CSS = `.h1{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;font-weight:800!important;letter-spacing:-.04em!important;color:#1a3a6b!important}
+.h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;font-weight:700!important;letter-spacing:-.03em!important;color:#1a3a6b!important}
+.agenda-num{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;font-size:clamp(28px,4vw,52px)!important;color:#1a3a6b!important;font-weight:800!important}
+.metric .n{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;color:#1a3a6b!important;font-weight:800!important}
+.end-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;font-weight:800!important}
+.tk-num{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;color:#1a3a6b!important;font-weight:800!important}
+.quote-text{font-family:'Plus Jakarta Sans',system-ui,sans-serif!important;font-size:clamp(22px,3.5vw,46px)!important;font-weight:600!important;font-style:italic!important}
+.quote-mark{color:#c9a44a!important;opacity:.5!important}
+.card,.tk-card,.stat-card{border:1px solid rgba(26,58,107,.12)!important;border-radius:12px!important;box-shadow:0 2px 10px rgba(26,58,107,.06)!important}
+.card-accent{border-left:4px solid #1a3a6b!important}
+.card-soft,.agenda-item{background:var(--surface-2)!important;border:1px solid rgba(26,58,107,.08)!important;box-shadow:none!important}
+.bullet-list li::before{background:#c9a44a!important}
+.accent-bar{background:linear-gradient(90deg,#1a3a6b,#c9a44a)!important}
+.eyebrow,.kicker{color:#1a3a6b!important;letter-spacing:.2em!important}
+.cs-result{background:rgba(201,164,74,.12)!important;color:#8b6914!important;border-color:rgba(201,164,74,.3)!important}
+.nbtn:hover{background:#1a3a6b!important;border-color:#1a3a6b!important}
+.content-right,.cs-right{border:1px solid rgba(26,58,107,.12)!important;background:rgba(201,164,74,.04)!important}`;
 
 export const RUNTIME_JS = `(function(){
 var slides=[].slice.call(document.querySelectorAll('.slide'));
@@ -214,69 +226,112 @@ document.addEventListener('touchstart',function(e){tx=e.touches[0].clientX;},{pa
 document.addEventListener('touchend',function(e){var d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>40)go(d<0?cur+1:cur-1);},{passive:true});
 })();`;
 
-// ─── Slide type interfaces ────────────────────────────────────────────────────
-export interface TitleSlide   { type:'title'; title:string; subtitle:string; badge:string }
-export interface AgendaSlide  { type:'agenda'; eyebrow:string; title:string; items:{n:string;label:string;desc:string}[] }
-export interface ContentSlide { type:'content'; eyebrow:string; title:string; points:string[]; imagePrompt:string }
-export interface StatsSlide   { type:'stats'; eyebrow:string; title:string; stats:{value:string;label:string}[] }
-export interface CaseStudy    { type:'case-study'; tag:string; company:string; headline:string; story:string; result:string; imagePrompt:string }
-export interface QuoteSlide   { type:'quote'; text:string; author:string; role:string }
-export interface Takeaways    { type:'takeaways'; title:string; items:string[] }
-export interface EndSlide     { type:'end'; title:string; next:string }
-export interface DiagramSlide { type:'diagram'; eyebrow:string; title:string; description:string; svgContent?:string }
-export type AnySlide = TitleSlide|AgendaSlide|ContentSlide|StatsSlide|CaseStudy|QuoteSlide|Takeaways|EndSlide|DiagramSlide;
+// ─── Slide type interfaces (16 types — Refer.pdf pedagogy) ───────────────────
+export interface TitleSlide { type: 'title'; title: string; subtitle: string; badge: string; visualPrompt: string; }
+export interface OverviewSlide { type: 'overview'; eyebrow: string; title: string; goals: string[]; agendaItems: string[]; visualPrompt: string; }
+export interface ExperienceTriggerSlide { type: 'experience-trigger'; eyebrow: string; scenarioTitle: string; scenario: string; question: string; visualPrompt: string; }
+export interface ReflectionSlide { type: 'reflection'; eyebrow: string; title: string; discussionQuestions: string[]; insight: string; visualPrompt: string; }
+export interface ConceptSlide { type: 'concept'; eyebrow: string; title: string; definition: string; bullets: string[]; visualPrompt: string; }
+export interface ProcessFlowSlide { type: 'process-flow'; eyebrow: string; title: string; steps: { label: string; summary: string }[]; visualPrompt: string; }
+export interface ComparisonSlide { type: 'comparison'; eyebrow: string; title: string; columns: { heading: string; points: string[] }[]; visualPrompt: string; }
+export interface FrameworkSlide { type: 'framework'; eyebrow: string; title: string; modelName: string; segments: { label: string; description: string }[]; visualPrompt: string; }
+export interface WorkedExampleSlide { type: 'worked-example'; eyebrow: string; title: string; problem: string; process: string[]; result: string; visualPrompt: string; }
+export interface ExampleCaseSlide { type: 'example-case'; tag: string; company: string; scenario: string; question: string; outcome: string; visualPrompt: string; }
+export interface ExerciseSlide { type: 'exercise'; eyebrow: string; title: string; taskInstructions: string; steps: string[]; timeAllotted: string; visualPrompt: string; }
+export interface PrototypeStudioSlide { type: 'prototype-studio'; eyebrow: string; brief: string; makingSteps: string[]; templateBoxes: string[]; visualPrompt: string; }
+export interface TestFeedbackSlide { type: 'test-feedback'; eyebrow: string; title: string; criteria: { label: string; description: string }[]; feedbackExamples: { good: string; poor: string }; visualPrompt: string; }
+export interface SummarySlide { type: 'summary'; eyebrow: string; title: string; takeaways: string[]; visualPrompt: string; }
+export interface ChecklistSlide { type: 'checklist'; eyebrow: string; title: string; doItems: string[]; avoidItems: string[]; visualPrompt: string; }
+export interface TransitionRecapSlide { type: 'transition-recap'; eyebrow: string; recapTitle: string; recapPoints: string[]; previewTitle: string; previewPoints: string[]; visualPrompt: string; }
+
+export type AnySlide =
+  | TitleSlide | OverviewSlide | ExperienceTriggerSlide | ReflectionSlide
+  | ConceptSlide | ProcessFlowSlide | ComparisonSlide | FrameworkSlide
+  | WorkedExampleSlide | ExampleCaseSlide | ExerciseSlide | PrototypeStudioSlide
+  | TestFeedbackSlide | SummarySlide | ChecklistSlide | TransitionRecapSlide;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function esc(s: string): string {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function chrome(title: string): string {
-  return `<div class="chrome"><span>${esc(title)}</span><span class="counter"></span></div>`;
+function logo(mod: string): string {
+  return `<div class="slide-logo">
+    <div class="slide-logo-mark"><svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="7" height="7" rx="1.5" fill="white"/><rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".4"/></svg></div>
+    <span class="slide-logo-wordmark">BBA Online</span>
+  </div>
+  <div class="slide-footer"><span>${esc(mod)}</span><span style="opacity:.5;font-size:9px;letter-spacing:.15em">#LearnApplyGrow</span><span class="counter"></span></div>`;
+}
+function chrome(mod: string): string {
+  return logo(mod);
 }
 function nav(): string { return `<button class="nbtn np">←</button><button class="nbtn nn">→</button>`; }
 
 // ─── Slide renderers ──────────────────────────────────────────────────────────
 export function renderTitle(s: TitleSlide, mod: string, wb: boolean): string {
-  const corners = wb ? `<div class="wb-corners"><span class="wb-corner tl">${WB.stars}</span><span class="wb-corner tr">${WB.lightbulb}</span><span class="wb-corner bl">${WB.book}</span><span class="wb-corner br">${WB.pencil}</span></div>` : '';
+  const corners = wb ? '' : '';
   const underline = wb ? WB.underline : '';
   const gradCls = wb ? '' : 'gradient-text';
-  const decors = wb ? '' : '<div class="decor"></div><div class="decor2"></div>';
+  const decors = wb ? '' : '<div class="decor" style="opacity:.14"></div><div class="decor2" style="opacity:.09"></div>';
+  const heroRing = wb ? `<div style="position:absolute;right:-130px;top:50%;transform:translateY(-50%);width:540px;height:540px;border-radius:50%;border:44px solid var(--accent-2);opacity:.18;pointer-events:none;z-index:0"></div>
+  <div style="position:absolute;right:30px;top:50%;transform:translateY(-50%);width:350px;height:350px;border-radius:50%;border:26px solid var(--accent);opacity:.10;pointer-events:none;z-index:0"></div>` : '';
   return `<section class="slide slide-title">
-  ${chrome(mod)}${corners}${decors}
-  <div style="position:relative;z-index:2">
-    <span class="pill pill-accent" style="margin-bottom:18px;display:inline-block">${esc(s.badge)}</span>
+  ${chrome(mod)}${corners}${decors}${heroRing}
+  <span class="pill pill-accent" style="position:absolute;top:52px;right:28px;z-index:12">${esc(s.badge)}</span>
+  <div style="position:relative;z-index:2;max-width:54%">
     <h1 class="h1 ${gradCls}" style="margin-bottom:${wb?'2px':'14px'}">${esc(s.title)}</h1>
     ${underline}
-    <p class="lede">${esc(s.subtitle)}</p>
+    <p class="lede" style="max-width:38ch">${esc(s.subtitle)}</p>
   </div>
   ${nav()}
 </section>`;
 }
 
-export function renderAgenda(s: AgendaSlide, mod: string): string {
+export function renderAgenda(s: AgendaSlide, mod: string, wb: boolean = false): string {
   const items = (s.items||[]).slice(0,8).map(it=>`
     <div class="agenda-item">
       <div class="agenda-num">${esc(it.n)}</div>
       <div><div class="agenda-label">${esc(it.label)}</div><div class="agenda-desc">${esc(it.desc)}</div></div>
     </div>`).join('');
-  return `<section class="slide">
-  ${chrome(mod)}
-  <span class="eyebrow">${esc(s.eyebrow)}</span>
-  <div class="accent-bar"></div>
-  <h2 class="h2">${esc(s.title)}</h2>
-  <div class="agenda-grid">${items}</div>
+  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
+  return `<section class="slide" style="position:relative">
+  ${chrome(mod)}${dotGrid}
+  <div style="position:relative;z-index:1">
+    <span class="eyebrow">${esc(s.eyebrow)}</span>
+    <div class="accent-bar"></div>
+    <h2 class="h2">${esc(s.title)}</h2>
+    <div class="agenda-grid">${items}</div>
+  </div>
   ${nav()}
 </section>`;
 }
 
-export function renderContent(s: ContentSlide, imgUrl: string|null, mod: string): string {
+export function renderContent(s: ContentSlide, imgUrl: string|null, mod: string, wb: boolean = false, altLayout = false): string {
+  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
+  if (altLayout) {
+    const cards = (s.points||[]).slice(0,4).map(b=>`
+        <div class="card card-accent" style="padding:16px 18px">
+          <div class="kicker" style="margin-bottom:6px">${esc(b.slice(0,40))}</div>
+          <p style="font-size:clamp(12px,1.3vw,14px);color:var(--text-2);line-height:1.5">${esc(b)}</p>
+        </div>`).join('');
+    return `<section class="slide" style="position:relative">
+  ${chrome(mod)}${dotGrid}
+  <div style="position:relative;z-index:1">
+    <span class="eyebrow">${esc(s.eyebrow)}</span>
+    <div class="accent-bar"></div>
+    <h2 class="h2">${esc(s.title)}</h2>
+    <div class="g2" style="margin-top:18px">${cards}
+    </div>
+  </div>
+  ${nav()}
+</section>`;
+  }
   const img = imgUrl
     ? `<div class="content-right"><img src="${imgUrl}" alt="visual" loading="lazy"/></div>`
-    : `<div class="content-right" style="min-height:180px;font-size:11px;color:#888;padding:16px;text-align:center;display:flex;align-items:center;justify-content:center"><span>Visual panel</span></div>`;
-  const bullets = (s.points||[]).slice(0,4).map(p=>`<li><span>${esc(p)}</span></li>`).join('');
-  return `<section class="slide">
-  ${chrome(mod)}
-  <div class="content-body">
+    : `<div class="content-right" style="min-height:180px;background:var(--bg-soft);border:1.5px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 80 80" fill="none" width="60" height="60"><rect x="8" y="8" width="64" height="64" rx="8" stroke="var(--accent)" stroke-width="1.5" opacity=".3"/><circle cx="40" cy="40" r="16" stroke="var(--accent-2)" stroke-width="1.5" opacity=".3"/><path d="M28 40h24M40 28v24" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" opacity=".3"/></svg></div>`;
+  const bullets = (s.points||[]).slice(0,3).map(p=>`<li><span>${esc(p)}</span></li>`).join('');
+  return `<section class="slide" style="position:relative">
+  ${chrome(mod)}${dotGrid}
+  <div class="content-body" style="position:relative;z-index:1">
     <div class="content-left">
       <span class="eyebrow">${esc(s.eyebrow)}</span>
       <div class="accent-bar"></div>
@@ -289,17 +344,21 @@ export function renderContent(s: ContentSlide, imgUrl: string|null, mod: string)
 </section>`;
 }
 
-export function renderStats(s: StatsSlide, mod: string): string {
-  const stats = (s.stats||[]).slice(0,3).map(st=>`
-    <div class="stat-card">
+export function renderStats(s: StatsSlide, mod: string, wb: boolean = false): string {
+  const stats = (s.stats||[]).slice(0,3).map((st,i)=>`
+    <div class="stat-card" style="position:relative;overflow:hidden">
+      <div style="position:absolute;top:10px;right:14px;opacity:.08;font-size:48px;font-weight:900;color:var(--accent);line-height:1">${['▲','◆','●'][i]}</div>
       <div class="metric"><div class="n">${esc(st.value)}</div><div class="l">${esc(st.label)}</div></div>
     </div>`).join('');
-  return `<section class="slide">
-  ${chrome(mod)}
-  <span class="eyebrow">${esc(s.eyebrow)}</span>
-  <div class="accent-bar"></div>
-  <h2 class="h2">${esc(s.title)}</h2>
-  <div class="stats-grid">${stats}</div>
+  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
+  return `<section class="slide" style="position:relative">
+  ${chrome(mod)}${dotGrid}
+  <div style="position:relative;z-index:1">
+    <span class="eyebrow">${esc(s.eyebrow)}</span>
+    <div class="accent-bar"></div>
+    <h2 class="h2">${esc(s.title)}</h2>
+    <div class="stats-grid">${stats}</div>
+  </div>
   ${nav()}
 </section>`;
 }
@@ -334,26 +393,36 @@ export function renderQuote(s: QuoteSlide, mod: string): string {
 </section>`;
 }
 
-export function renderTakeaways(s: Takeaways, mod: string): string {
-  const items = (s.items||[]).slice(0,6).map((it,i)=>`
-    <div class="tk-card">
-      <div class="tk-num">${String(i+1).padStart(2,'0')}</div>
-      <div class="tk-text">${esc(it)}</div>
+export function renderTakeaways(s: Takeaways, mod: string, wb: boolean = false): string {
+  const items = (s.items||[]).slice(0,4).map((it,i)=>`
+    <div class="${wb ? 'tk-card-2' : 'tk-card'}">
+      <div class="${wb ? 'tk-num-2' : 'tk-num'}">${String(i+1).padStart(2,'0')}</div>
+      <div class="${wb ? 'tk-text-2' : 'tk-text'}">${esc(it)}</div>
     </div>`).join('');
-  return `<section class="slide">
-  ${chrome(mod)}
-  <span class="eyebrow">Summary</span>
-  <h2 class="h2">${esc(s.title)}</h2>
-  <div class="tk-grid">${items}</div>
+  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
+  return `<section class="slide" style="position:relative">
+  ${chrome(mod)}${dotGrid}
+  <div style="position:relative;z-index:1">
+    <span class="eyebrow">Summary</span>
+    <div class="accent-bar"></div>
+    <h2 class="h2">${esc(s.title)}</h2>
+    <div class="${wb ? 'tk-grid-2' : 'tk-grid'}">${items}</div>
+  </div>
   ${nav()}
 </section>`;
 }
 
 export function renderEnd(s: EndSlide, mod: string, wb: boolean): string {
-  const corners = wb ? `<div class="wb-corners"><span class="wb-corner tl">${WB.stars}</span><span class="wb-corner tr">${WB.gradCap}</span><span class="wb-corner bl">${WB.book}</span><span class="wb-corner br">${WB.pencil}</span></div>` : '';
   const underline = wb ? WB.underline : '';
+  const endRings = wb ? `<div style="position:absolute;left:-100px;top:50%;transform:translateY(-50%);width:400px;height:400px;border-radius:50%;border:36px solid rgba(255,255,255,.12);pointer-events:none;z-index:0"></div>
+  <div style="position:absolute;right:-60px;bottom:-60px;width:260px;height:260px;border-radius:50%;border:22px solid rgba(255,255,255,.08);pointer-events:none;z-index:0"></div>` : '';
+  const endLogo = wb ? `<div class="slide-logo" style="top:14px;left:22px;">
+    <div class="slide-logo-mark" style="background:rgba(255,255,255,.2)"><svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="7" height="7" rx="1.5" fill="white"/><rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".4"/></svg></div>
+    <span class="slide-logo-wordmark" style="color:rgba(255,255,255,.85)">BBA Online</span>
+  </div>
+  <div class="slide-footer" style="border-top:1px solid rgba(255,255,255,.15);background:transparent;"><span style="color:rgba(255,255,255,.55)">${esc(mod)}</span></div>` : `${chrome(mod)}`;
   return `<section class="slide slide-end">
-  ${chrome(mod)}${corners}
+  ${endLogo}${endRings}
   <div style="position:relative;z-index:2;text-align:center;width:100%">
     <div class="end-title">${esc(s.title)}</div>
     ${underline}
@@ -366,7 +435,7 @@ export function renderEnd(s: EndSlide, mod: string, wb: boolean): string {
 
 export function renderDiagram(s: DiagramSlide, svgContent: string|null, mod: string): string {
   const svgPanel = svgContent
-    ? `<div class="diagram-right">${svgContent}</div>`
+    ? `<div class="diagram-right"><div class="mermaid">${svgContent}</div></div>`
     : `<div class="diagram-right" style="font-size:11px;color:#888;display:flex;align-items:center;justify-content:center"><span>Diagram</span></div>`;
   return `<section class="slide">
   ${chrome(mod)}
@@ -375,7 +444,7 @@ export function renderDiagram(s: DiagramSlide, svgContent: string|null, mod: str
       <span class="eyebrow">${esc(s.eyebrow)}</span>
       <div class="accent-bar"></div>
       <h2 class="h2">${esc(s.title)}</h2>
-      <p class="lede" style="margin-top:12px;font-size:clamp(11px,1.3vw,14px)">${esc(s.description)}</p>
+      <p class="lede" style="margin-top:12px;font-size:clamp(11px,1.3vw,14px);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(s.description)}</p>
     </div>
     ${svgPanel}
   </div>
@@ -383,15 +452,15 @@ export function renderDiagram(s: DiagramSlide, svgContent: string|null, mod: str
 </section>`;
 }
 
-export function renderSlide(slide: AnySlide, media: string|null, modTitle: string, wb: boolean): string {
+export function renderSlide(slide: AnySlide, media: string|null, modTitle: string, wb: boolean, altContent = false): string {
   switch (slide.type) {
     case 'title':      return renderTitle(slide as TitleSlide, modTitle, wb);
-    case 'agenda':     return renderAgenda(slide as AgendaSlide, modTitle);
-    case 'content':    return renderContent(slide as ContentSlide, media, modTitle);
-    case 'stats':      return renderStats(slide as StatsSlide, modTitle);
+    case 'agenda':     return renderAgenda(slide as AgendaSlide, modTitle, wb);
+    case 'content':    return renderContent(slide as ContentSlide, media, modTitle, wb, altContent);
+    case 'stats':      return renderStats(slide as StatsSlide, modTitle, wb);
     case 'case-study': return renderCaseStudy(slide as CaseStudy, media, modTitle);
     case 'quote':      return renderQuote(slide as QuoteSlide, modTitle);
-    case 'takeaways':  return renderTakeaways(slide as Takeaways, modTitle);
+    case 'takeaways':  return renderTakeaways(slide as Takeaways, modTitle, wb);
     case 'end':        return renderEnd(slide as EndSlide, modTitle, wb);
     case 'diagram':    return renderDiagram(slide as DiagramSlide, media, modTitle);
     default:           return '';
@@ -418,7 +487,7 @@ ${sections}
 </body></html>`;
 }
 
-export function buildHtmlWrapper(dir: DirectionConfig, wb: boolean, title: string): { head: string; tail: string } {
+export function buildHtmlWrapper(dir: DirectionConfig, wb: boolean, title: string, darkMode = false): { head: string; tail: string } {
   const head = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -431,10 +500,18 @@ ${wb ? WB_EXTRA_CSS : ''}
 </style></head>
 <body><div class="deck">
 `;
+  const mermaidTheme = darkMode ? 'dark' : 'neutral';
+  const mermaidVars = darkMode
+    ? `{ primaryColor: '#58a6ff', primaryTextColor: '#f0f6fc', lineColor: '#58a6ff', background: '#161b22' }`
+    : `{ primaryColor: '#1a3a6b', primaryTextColor: '#1a1a1a', lineColor: '#1a3a6b' }`;
   const tail = `
 </div>
 <div class="pbar"><span></span></div>
 <script>${RUNTIME_JS}</script>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true, theme: '${mermaidTheme}', themeVariables: ${mermaidVars} });
+</script>
 </body></html>`;
   return { head, tail };
 }
@@ -448,15 +525,15 @@ export const SLIDE_DISTRIBUTIONS: Record<number, string[]> = {
   30: ['title','agenda','content','content','stats','content','diagram','content','case-study','diagram','content','case-study','stats','content','diagram','case-study','content','stats','diagram','content','case-study','diagram','quote','content','diagram','case-study','takeaways','takeaways','takeaways','end'],
 };
 
-// ─── Image generation (Ideogram v2 — pure visuals, NO TEXT) ──────────────────
+// ─── Image generation (nano-banana-pro — pure visuals, NO TEXT) ──────────────
 export async function genImage(slidePrompt: string, styleAnchor: string, moduleCtx: string): Promise<string|null> {
   if (!process.env.FAL_KEY) return null;
   const fullPrompt = `${styleAnchor}\n\n${moduleCtx}\n\n${slidePrompt}\n\nIMPORTANT: NO TEXT. NO WORDS. NO LETTERS. NO LABELS. NO CAPTIONS. Purely visual.`;
   try {
-    const res = await fetch('https://fal.run/fal-ai/ideogram/v2', {
+    const res = await fetch('https://fal.run/fal-ai/nano-banana-pro', {
       method: 'POST',
       headers: { Authorization: `Key ${process.env.FAL_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt, aspect_ratio: '4:3', style: 'design', magic_prompt_option: 'OFF' }),
+      body: JSON.stringify({ prompt: fullPrompt, image_size: 'landscape_4_3', num_images: 1 }),
       signal: AbortSignal.timeout(60000),
     });
     if (!res.ok) return null;
@@ -465,33 +542,38 @@ export async function genImage(slidePrompt: string, styleAnchor: string, moduleC
   } catch { return null; }
 }
 
-// ─── SVG diagram generation (Claude Haiku — 100% text-accurate) ───────────────
-export async function genDiagram(description: string, primaryColor: string): Promise<string|null> {
+// ─── Mermaid diagram generation (Claude Haiku) ───────────────────────────────
+export async function genDiagram(description: string, _primaryColor: string): Promise<string|null> {
   if (!process.env.ANTHROPIC_API_KEY) return null;
   try {
     const msg = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 512,
       messages: [{
         role: 'user',
-        content: `Generate a clean inline SVG diagram.
-ViewBox: 0 0 560 320. Attributes: width="560" height="320".
-Topic to diagram: ${description}
-Primary color: ${primaryColor}
+        content: `Generate a Mermaid diagram for the following topic.
+Topic: ${description}
 Rules:
-- Use SVG text elements for all labels (accurate, readable, font-family="Arial,sans-serif")
-- Use rect, circle, path, line, polygon, arrow markers for structure
-- Clean minimal design, adequate whitespace, font-size 11-14px for labels
-- Use ${primaryColor} for main accents, lighter tints for fills
-- Return ONLY the <svg ...>...</svg> element. No markdown. No explanation.`,
+- Return ONLY valid Mermaid syntax. No markdown fences. No explanation. No \`\`\`mermaid wrapper.
+- Choose the most appropriate type: flowchart LR, graph TD, timeline, sequenceDiagram, or quadrantChart
+- Keep it concise: 5–8 nodes maximum
+- Use short labels (2–4 words per node)
+- Start directly with the diagram type keyword (e.g. "flowchart LR" or "graph TD")
+- Do NOT add any "style", "classDef", or "class" directives — diagram theming is handled externally`,
       }],
     });
     const raw = msg.content
       .filter(b => b.type === 'text')
       .map(b => (b as {type:'text';text:string}).text)
-      .join('');
-    const match = raw.match(/<svg[\s\S]*?<\/svg>/i);
-    return match ? match[0] : null;
+      .join('')
+      .trim()
+      .replace(/^```(?:mermaid)?\n?/i, '')
+      .replace(/\n?```$/i, '')
+      .split('\n')
+      .filter(line => !line.match(/^\s*(style|classDef|class)\s/i))
+      .join('\n')
+      .trim();
+    return raw.length > 10 ? raw : null;
   } catch { return null; }
 }
 
@@ -515,7 +597,7 @@ export function buildContentPrompt(topics: string[], title: string, semester: nu
 - case-study: {"type":"case-study","tag":"India or Global","company":"real company name","headline":"max 8 words","story":"max 25 words, one sentence","result":"metric or outcome","imagePrompt":"20-30 words, PURELY VISUAL SCENE, no text"}
 - quote: {"type":"quote","text":"real quote max 20 words","author":"real person name","role":"title/company"}
 - takeaways: {"type":"takeaways","title":"Key Takeaways","items":["max 8 words each, 6 items"]}
-- diagram: {"type":"diagram","eyebrow":"short label","title":"max 6 words","description":"what to diagram: e.g. four-stage RACE framework cycle showing Reach, Act, Convert, Engage steps with arrows"}
+- diagram: {"type":"diagram","eyebrow":"short label","title":"max 6 words","description":"concise caption ≤15 words (NOT a design brief), e.g. 'Four-stage RACE framework: Reach, Act, Convert, Engage'"}
 - end: {"type":"end","title":"Thank You","next":"Next: Module X — topic name"}`;
 
   return `/no_think
