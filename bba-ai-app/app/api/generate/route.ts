@@ -1,24 +1,14 @@
 import { NextRequest } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { buildPrompt } from '@/lib/generation-prompts';
 import type { ArtifactType, ParsedModule } from '@/lib/types';
 import { rateLimit, getIp } from '@/lib/rate-limit';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(`generate:${getIp(request)}`, 5, 60 * 60 * 1000); // 5/hour
+  const rl = rateLimit(`generate:${getIp(request)}`, 5, 60 * 60 * 1000);
   if (!rl.allowed) {
     return new Response(
       `Rate limit reached. Try again in ${Math.ceil(rl.retryAfterSecs / 60)} minute${rl.retryAfterSecs > 120 ? 's' : ''}.`,
       { status: 429, headers: { 'Retry-After': String(rl.retryAfterSecs) } }
-    );
-  }
-
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return new Response(
-      'ANTHROPIC_API_KEY is not set. Copy .env.local.example to .env.local and add your key.',
-      { status: 503 }
     );
   }
 
@@ -44,31 +34,90 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const encoder = new TextEncoder();
+  // Try OpenRouter first (reliable on Vercel), fall back to Anthropic direct
+  async function fetchUpstream(): Promise<ReadableStream<Uint8Array>> {
+    if (process.env.OPENROUTER_API_KEY) {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://bba-ai-app.vercel.app',
+          'X-Title': 'UNAITED',
+        },
+        body: JSON.stringify({
+          model: 'anthropic/claude-sonnet-4-6',
+          max_tokens: 8000,
+          stream: true,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (res.ok && res.body) return res.body;
+    }
+    if (!process.env.ANTHROPIC_API_KEY) throw new Error('No API key configured');
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        stream: true,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok || !res.body) throw new Error(`Anthropic ${res.status}`);
+    return res.body;
+  }
 
+  let upstream: ReadableStream<Uint8Array>;
+  try {
+    upstream = await fetchUpstream();
+  } catch (err) {
+    return new Response(
+      err instanceof Error ? err.message : 'Generation failed',
+      { status: 500 }
+    );
+  }
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  // Parse SSE from upstream and emit only the text deltas
   const stream = new ReadableStream({
     async start(controller) {
+      const reader = upstream.getReader();
+      let buffer = '';
       try {
-        const anthropicStream = anthropic.messages.stream({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 8000,
-          messages: [{ role: 'user', content: prompt }],
-        });
-
-        for await (const event of anthropicStream) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              // OpenRouter / OpenAI format
+              const oaiDelta = parsed?.choices?.[0]?.delta?.content;
+              if (typeof oaiDelta === 'string') {
+                controller.enqueue(encoder.encode(oaiDelta));
+                continue;
+              }
+              // Anthropic direct SSE format
+              if (parsed?.type === 'content_block_delta' && typeof parsed?.delta?.text === 'string') {
+                controller.enqueue(encoder.encode(parsed.delta.text));
+              }
+            } catch { /* skip malformed lines */ }
           }
         }
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          const msg = err instanceof Error ? err.message : 'Generation failed';
-          controller.enqueue(encoder.encode(`\n\n---\n\n**Error**: ${msg}`));
-        }
-      } finally {
+      } catch { /* client disconnected or aborted */ } finally {
         controller.close();
       }
     },

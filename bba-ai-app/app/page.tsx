@@ -165,6 +165,8 @@ export default function Home() {
       let full = '';
 
       while (true) {
+        // Respect stop button — abort signal fired
+        if (abortRef.current?.signal.aborted) break;
         const { done, value } = await reader.read();
         if (done) break;
         full += decoder.decode(value, { stream: true });
@@ -175,11 +177,24 @@ export default function Home() {
 
       setChatStep('generating-done');
     } catch (err) {
-      if ((err as Error).name === 'AbortError') {
+      const name = (err as Error).name;
+      if (name === 'AbortError' || name === 'TypeError') {
+        // Aborted by stop button or network cancel — mark done, keep content
         setChatStep('generating-done');
         return;
       }
       console.error('Generate error:', err);
+      // Don't leave user stuck — go back to chat with an error message
+      setChatStep('selecting-artifact');
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'assistant' as const,
+          type: 'text' as const,
+          content: 'Generation failed — please try again.',
+        },
+      ]);
     }
   }
 

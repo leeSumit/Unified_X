@@ -31,9 +31,9 @@ export default function ChatInput({
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
-  }, [value]);
+    el.style.height = '0px'; // force collapse so scrollHeight recalculates correctly
+    el.style.height = Math.min(el.scrollHeight, multiline ? 300 : 200) + 'px';
+  }, [value, multiline]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
