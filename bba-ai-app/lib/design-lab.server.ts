@@ -1,6 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ─── Direction config ─────────────────────────────────────────────────────────
 export interface DirectionConfig {
@@ -250,335 +247,132 @@ export type AnySlide =
   | WorkedExampleSlide | ExampleCaseSlide | ExerciseSlide | PrototypeStudioSlide
   | TestFeedbackSlide | SummarySlide | ChecklistSlide | TransitionRecapSlide;
 
+// ─── Slide count distributions (10 and 20 only — Refer.pdf pedagogy) ─────────
+export const SLIDE_DISTRIBUTIONS: Record<number, string[]> = {
+  10: [
+    'title',
+    'overview',
+    'experience-trigger',
+    'concept',
+    'process-flow',
+    'worked-example',
+    'example-case',
+    'exercise',
+    'summary',
+    'checklist',
+  ],
+  20: [
+    'title',
+    'overview',
+    'experience-trigger',
+    'reflection',
+    'concept',
+    'process-flow',
+    'framework',
+    'comparison',
+    'transition-recap',
+    'worked-example',
+    'example-case',
+    'reflection',
+    'exercise',
+    'prototype-studio',
+    'example-case',
+    'test-feedback',
+    'summary',
+    'checklist',
+    'transition-recap',
+    'title',
+  ],
+};
+
+// ─── Theme → image prompt style descriptors ───────────────────────────────────
+export const THEME_STYLE_DESCRIPTORS: Record<string, string> = {
+  'modern-minimal': 'Clean Swiss editorial layout, white/off-white background, strong blue-violet accent color #3b6cff, generous negative space, asymmetric composition, museum-quality typography hierarchy. ',
+  'campus-ai': 'Warm cream parchment background #F5F0E8, deep academic purple #5B2D8E and energetic orange #E8681A accents, modern Indian university aesthetic, collegial and inviting, clean sans-serif hierarchy. ',
+  'editorial': 'Warm ivory paper #fdf8f2 background, bold coral-red #c0392b accent, classical editorial newspaper aesthetic, serif display type feel, ink-and-paper mood, refined and authoritative. ',
+  'tech-dark': 'Deep dark background #0d1117, glowing blue #58a6ff and green #3fb950 neon accents, circuit-board organic shapes, data visualization aesthetic, futuristic minimal, high-contrast. ',
+  'whiteboard': 'Clean chalk-white background, navy blue #1a3a6b and gold #c9a44a marker colors, hand-drawn infographic aesthetic, flat vector educational illustration, primary color pops, textbook diagram warmth. ',
+  'kami-serif': 'Warm parchment #f5f4ed background, deep ink-blue #1B365D and antique gold #8B6914 accents, classical scholarly aesthetic, Garamond serif mood, authoritative academic gravitas, timeless. ',
+};
+
+// ─── Slide layout descriptors (internal — used by buildSlideImagePrompt) ──────
+const SLIDE_LAYOUT_DESCRIPTORS: Record<string, string> = {
+  'title': 'Full-bleed presentation title slide, 16:9. Left two-thirds: large bold title text area, subtitle below. Right third: abstract decorative shape/illustration. Logo placeholder bottom-left.',
+  'overview': 'Agenda/overview slide, 16:9. Left half: numbered goal list (3-4 items) with icon placeholders. Right half: abstract cluster diagram or icon grid showing topics.',
+  'experience-trigger': 'Opening scenario slide, 16:9. Top 60%: full-width immersive scene illustration. Bottom panel: scenario title and hook question text areas.',
+  'reflection': 'Discussion/reflection slide, 16:9. Center-left: large question mark motif or thought-bubble visual. Right: 2-3 discussion question text blocks with connecting visual lines.',
+  'concept': 'Concept definition slide, 16:9. Left 55%: eyebrow label, title, definition paragraph, 3 bullet points. Right 45%: conceptual diagram or icon illustration representing the concept.',
+  'process-flow': 'Process flow slide, 16:9. Horizontal arrow flow diagram with 4-5 numbered stages, each with label and one-line summary below. Clean linear progression left to right.',
+  'comparison': 'Comparison slide, 16:9. 2-3 equal columns separated by thin divider lines. Each column: header label, 3-4 bullet points. Background alternates lightly.',
+  'framework': 'Framework model slide, 16:9. Large central labeled diagram (quadrant, layered ring, or matrix) occupying right 55%. Left 45%: framework name title and 4 bullet annotations.',
+  'worked-example': 'Worked example slide, 16:9. Three-panel horizontal layout. Left panel (input/problem): shaded background. Center panel (process/reasoning): arrows and steps. Right panel (output/result): highlighted conclusion.',
+  'example-case': 'Case study slide, 16:9. Top: company/case name with tag badge. Left 50%: scenario paragraph and question text. Right 50%: timeline storyboard or contextual scene illustration.',
+  'exercise': 'Exercise/activity slide, 16:9. Top: bold task instruction banner. Center: numbered checklist steps with checkbox visuals. Bottom-right: time allocation badge.',
+  'prototype-studio': 'Studio/making slide, 16:9. Top strip: brief text. Below: 3-4 equal-width template boxes with dashed borders (workspace placeholders). Process arrow flow between boxes.',
+  'test-feedback': 'Rubric/feedback slide, 16:9. Left half: criteria/rubric table with 3-4 rows and rating scale. Right half: good vs poor example cards, color-coded green/red.',
+  'summary': 'Key takeaways slide, 16:9. Left-center: large numbered list (3-5 items) with icon accents. Right: abstract summary visual or upward-arrow motif. Clean warm closure feel.',
+  'checklist': 'Do vs Avoid slide, 16:9. Two-column layout. Left column (Do/Best Practice): green-accented list. Right column (Avoid/Pitfall): red-accented list. Center divider line.',
+  'transition-recap': 'Transition slide, 16:9. Left half (slightly darker bg): Recap heading + 2-3 bullet points. Right half (lighter bg): Preview heading + 2-3 bullet points. Vertical divider with arrow motif.',
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 export function esc(s: string): string {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function logo(mod: string): string {
-  return `<div class="slide-logo">
-    <div class="slide-logo-mark"><svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="7" height="7" rx="1.5" fill="white"/><rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".4"/></svg></div>
-    <span class="slide-logo-wordmark">BBA Online</span>
-  </div>
-  <div class="slide-footer"><span>${esc(mod)}</span><span style="opacity:.5;font-size:9px;letter-spacing:.15em">#LearnApplyGrow</span><span class="counter"></span></div>`;
-}
-function chrome(mod: string): string {
-  return logo(mod);
-}
-function nav(): string { return `<button class="nbtn np">←</button><button class="nbtn nn">→</button>`; }
 
-// ─── Slide renderers ──────────────────────────────────────────────────────────
-export function renderTitle(s: TitleSlide, mod: string, wb: boolean): string {
-  const corners = wb ? '' : '';
-  const underline = wb ? WB.underline : '';
-  const gradCls = wb ? '' : 'gradient-text';
-  const decors = wb ? '' : '<div class="decor" style="opacity:.14"></div><div class="decor2" style="opacity:.09"></div>';
-  const heroRing = wb ? `<div style="position:absolute;right:-130px;top:50%;transform:translateY(-50%);width:540px;height:540px;border-radius:50%;border:44px solid var(--accent-2);opacity:.18;pointer-events:none;z-index:0"></div>
-  <div style="position:absolute;right:30px;top:50%;transform:translateY(-50%);width:350px;height:350px;border-radius:50%;border:26px solid var(--accent);opacity:.10;pointer-events:none;z-index:0"></div>` : '';
-  return `<section class="slide slide-title">
-  ${chrome(mod)}${corners}${decors}${heroRing}
-  <span class="pill pill-accent" style="position:absolute;top:52px;right:28px;z-index:12">${esc(s.badge)}</span>
-  <div style="position:relative;z-index:2;max-width:54%">
-    <h1 class="h1 ${gradCls}" style="margin-bottom:${wb?'2px':'14px'}">${esc(s.title)}</h1>
-    ${underline}
-    <p class="lede" style="max-width:38ch">${esc(s.subtitle)}</p>
-  </div>
-  ${nav()}
-</section>`;
+// ─── Slide image prompt builder ───────────────────────────────────────────────
+export function buildSlideImagePrompt(slide: AnySlide, themeKey: string, moduleTitle: string): string {
+  const style = THEME_STYLE_DESCRIPTORS[themeKey] ?? THEME_STYLE_DESCRIPTORS['modern-minimal'];
+  const layout = SLIDE_LAYOUT_DESCRIPTORS[slide.type] ?? '';
+  const visual = (slide as { visualPrompt?: string }).visualPrompt ?? '';
+  return [
+    style,
+    layout,
+    `Academic BBA course topic: ${moduleTitle}.`,
+    visual,
+    `CRITICAL: This is a COMPLETE SLIDE IMAGE. Include ALL text, labels, titles, and content visible as rendered slide text. Render as a polished 16:9 presentation slide. Typography must be legible at presentation scale. No lorem ipsum. Use the actual content described.`,
+  ].join(' ');
 }
 
-export function renderAgenda(s: AgendaSlide, mod: string, wb: boolean = false): string {
-  const items = (s.items||[]).slice(0,8).map(it=>`
-    <div class="agenda-item">
-      <div class="agenda-num">${esc(it.n)}</div>
-      <div><div class="agenda-label">${esc(it.label)}</div><div class="agenda-desc">${esc(it.desc)}</div></div>
-    </div>`).join('');
-  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
-  return `<section class="slide" style="position:relative">
-  ${chrome(mod)}${dotGrid}
-  <div style="position:relative;z-index:1">
-    <span class="eyebrow">${esc(s.eyebrow)}</span>
-    <div class="accent-bar"></div>
-    <h2 class="h2">${esc(s.title)}</h2>
-    <div class="agenda-grid">${items}</div>
-  </div>
-  ${nav()}
-</section>`;
-}
-
-export function renderContent(s: ContentSlide, imgUrl: string|null, mod: string, wb: boolean = false, altLayout = false): string {
-  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
-  if (altLayout) {
-    const cards = (s.points||[]).slice(0,4).map(b=>`
-        <div class="card card-accent" style="padding:16px 18px">
-          <div class="kicker" style="margin-bottom:6px">${esc(b.slice(0,40))}</div>
-          <p style="font-size:clamp(12px,1.3vw,14px);color:var(--text-2);line-height:1.5">${esc(b)}</p>
-        </div>`).join('');
-    return `<section class="slide" style="position:relative">
-  ${chrome(mod)}${dotGrid}
-  <div style="position:relative;z-index:1">
-    <span class="eyebrow">${esc(s.eyebrow)}</span>
-    <div class="accent-bar"></div>
-    <h2 class="h2">${esc(s.title)}</h2>
-    <div class="g2" style="margin-top:18px">${cards}
-    </div>
-  </div>
-  ${nav()}
-</section>`;
-  }
-  const img = imgUrl
-    ? `<div class="content-right"><img src="${imgUrl}" alt="visual" loading="lazy"/></div>`
-    : `<div class="content-right" style="min-height:180px;background:var(--bg-soft);border:1.5px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 80 80" fill="none" width="60" height="60"><rect x="8" y="8" width="64" height="64" rx="8" stroke="var(--accent)" stroke-width="1.5" opacity=".3"/><circle cx="40" cy="40" r="16" stroke="var(--accent-2)" stroke-width="1.5" opacity=".3"/><path d="M28 40h24M40 28v24" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" opacity=".3"/></svg></div>`;
-  const bullets = (s.points||[]).slice(0,3).map(p=>`<li><span>${esc(p)}</span></li>`).join('');
-  return `<section class="slide" style="position:relative">
-  ${chrome(mod)}${dotGrid}
-  <div class="content-body" style="position:relative;z-index:1">
-    <div class="content-left">
-      <span class="eyebrow">${esc(s.eyebrow)}</span>
-      <div class="accent-bar"></div>
-      <h2 class="h2">${esc(s.title)}</h2>
-      <ul class="bullet-list">${bullets}</ul>
-    </div>
-    ${img}
-  </div>
-  ${nav()}
-</section>`;
-}
-
-export function renderStats(s: StatsSlide, mod: string, wb: boolean = false): string {
-  const stats = (s.stats||[]).slice(0,3).map((st,i)=>`
-    <div class="stat-card" style="position:relative;overflow:hidden">
-      <div style="position:absolute;top:10px;right:14px;opacity:.08;font-size:48px;font-weight:900;color:var(--accent);line-height:1">${['▲','◆','●'][i]}</div>
-      <div class="metric"><div class="n">${esc(st.value)}</div><div class="l">${esc(st.label)}</div></div>
-    </div>`).join('');
-  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
-  return `<section class="slide" style="position:relative">
-  ${chrome(mod)}${dotGrid}
-  <div style="position:relative;z-index:1">
-    <span class="eyebrow">${esc(s.eyebrow)}</span>
-    <div class="accent-bar"></div>
-    <h2 class="h2">${esc(s.title)}</h2>
-    <div class="stats-grid">${stats}</div>
-  </div>
-  ${nav()}
-</section>`;
-}
-
-export function renderCaseStudy(s: CaseStudy, imgUrl: string|null, mod: string): string {
-  const img = imgUrl
-    ? `<div class="cs-right"><img src="${imgUrl}" alt="${esc(s.company)}" loading="lazy"/></div>`
-    : `<div class="cs-right" style="min-height:180px;font-size:11px;color:#888;padding:16px;text-align:center;display:flex;align-items:center;justify-content:center"><span>Visual panel</span></div>`;
-  return `<section class="slide">
-  ${chrome(mod)}
-  <div class="cs-body">
-    <div class="cs-left">
-      <span class="pill pill-accent">${esc(s.tag)}</span>
-      <div class="cs-company">${esc(s.company)}</div>
-      <p class="cs-headline">${esc(s.headline)}</p>
-      <p class="cs-story">${esc(s.story)}</p>
-      <span class="cs-result">${esc(s.result)}</span>
-    </div>
-    ${img}
-  </div>
-  ${nav()}
-</section>`;
-}
-
-export function renderQuote(s: QuoteSlide, mod: string): string {
-  return `<section class="slide" style="display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:8% 10%">
-  ${chrome(mod)}
-  <div class="quote-mark">"</div>
-  <p class="quote-text">${esc(s.text)}</p>
-  <div><div class="quote-author">${esc(s.author)}</div><div class="quote-role">${esc(s.role)}</div></div>
-  ${nav()}
-</section>`;
-}
-
-export function renderTakeaways(s: Takeaways, mod: string, wb: boolean = false): string {
-  const items = (s.items||[]).slice(0,4).map((it,i)=>`
-    <div class="${wb ? 'tk-card-2' : 'tk-card'}">
-      <div class="${wb ? 'tk-num-2' : 'tk-num'}">${String(i+1).padStart(2,'0')}</div>
-      <div class="${wb ? 'tk-text-2' : 'tk-text'}">${esc(it)}</div>
-    </div>`).join('');
-  const dotGrid = wb ? '<div class="wb-dot-grid"></div>' : '';
-  return `<section class="slide" style="position:relative">
-  ${chrome(mod)}${dotGrid}
-  <div style="position:relative;z-index:1">
-    <span class="eyebrow">Summary</span>
-    <div class="accent-bar"></div>
-    <h2 class="h2">${esc(s.title)}</h2>
-    <div class="${wb ? 'tk-grid-2' : 'tk-grid'}">${items}</div>
-  </div>
-  ${nav()}
-</section>`;
-}
-
-export function renderEnd(s: EndSlide, mod: string, wb: boolean): string {
-  const underline = wb ? WB.underline : '';
-  const endRings = wb ? `<div style="position:absolute;left:-100px;top:50%;transform:translateY(-50%);width:400px;height:400px;border-radius:50%;border:36px solid rgba(255,255,255,.12);pointer-events:none;z-index:0"></div>
-  <div style="position:absolute;right:-60px;bottom:-60px;width:260px;height:260px;border-radius:50%;border:22px solid rgba(255,255,255,.08);pointer-events:none;z-index:0"></div>` : '';
-  const endLogo = wb ? `<div class="slide-logo" style="top:14px;left:22px;">
-    <div class="slide-logo-mark" style="background:rgba(255,255,255,.2)"><svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="7" height="7" rx="1.5" fill="white"/><rect x="10" y="1" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="1" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".7"/><rect x="10" y="10" width="7" height="7" rx="1.5" fill="white" opacity=".4"/></svg></div>
-    <span class="slide-logo-wordmark" style="color:rgba(255,255,255,.85)">BBA Online</span>
-  </div>
-  <div class="slide-footer" style="border-top:1px solid rgba(255,255,255,.15);background:transparent;"><span style="color:rgba(255,255,255,.55)">${esc(mod)}</span></div>` : `${chrome(mod)}`;
-  return `<section class="slide slide-end">
-  ${endLogo}${endRings}
-  <div style="position:relative;z-index:2;text-align:center;width:100%">
-    <div class="end-title">${esc(s.title)}</div>
-    ${underline}
-    <p class="end-sub">${esc(mod)}</p>
-    <p class="end-next">${esc(s.next)}</p>
-  </div>
-  ${nav()}
-</section>`;
-}
-
-export function renderDiagram(s: DiagramSlide, svgContent: string|null, mod: string): string {
-  const svgPanel = svgContent
-    ? `<div class="diagram-right"><div class="mermaid">${svgContent}</div></div>`
-    : `<div class="diagram-right" style="font-size:11px;color:#888;display:flex;align-items:center;justify-content:center"><span>Diagram</span></div>`;
-  return `<section class="slide">
-  ${chrome(mod)}
-  <div class="diagram-body">
-    <div class="diagram-left">
-      <span class="eyebrow">${esc(s.eyebrow)}</span>
-      <div class="accent-bar"></div>
-      <h2 class="h2">${esc(s.title)}</h2>
-      <p class="lede" style="margin-top:12px;font-size:clamp(11px,1.3vw,14px);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">${esc(s.description)}</p>
-    </div>
-    ${svgPanel}
-  </div>
-  ${nav()}
-</section>`;
-}
-
-export function renderSlide(slide: AnySlide, media: string|null, modTitle: string, wb: boolean, altContent = false): string {
-  switch (slide.type) {
-    case 'title':      return renderTitle(slide as TitleSlide, modTitle, wb);
-    case 'agenda':     return renderAgenda(slide as AgendaSlide, modTitle, wb);
-    case 'content':    return renderContent(slide as ContentSlide, media, modTitle, wb, altContent);
-    case 'stats':      return renderStats(slide as StatsSlide, modTitle, wb);
-    case 'case-study': return renderCaseStudy(slide as CaseStudy, media, modTitle);
-    case 'quote':      return renderQuote(slide as QuoteSlide, modTitle);
-    case 'takeaways':  return renderTakeaways(slide as Takeaways, modTitle, wb);
-    case 'end':        return renderEnd(slide as EndSlide, modTitle, wb);
-    case 'diagram':    return renderDiagram(slide as DiagramSlide, media, modTitle);
-    default:           return '';
-  }
-}
-
-// ─── HTML assembler ────────────────────────────────────────────────────────────
-export function buildHtml(sections: string, dir: DirectionConfig, wb: boolean, title: string): string {
-  return `<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title>
-<style>
-${dir.fonts}
-:root{${dir.tokens}}
-${BASE_CSS}
-${wb ? WB_EXTRA_CSS : ''}
-</style></head>
-<body><div class="deck">
-${sections}
-</div>
-<div class="pbar"><span></span></div>
-<script>${RUNTIME_JS}</script>
-</body></html>`;
-}
-
-export function buildHtmlWrapper(dir: DirectionConfig, wb: boolean, title: string, darkMode = false): { head: string; tail: string } {
-  const head = `<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title>
-<style>
-${dir.fonts}
-:root{${dir.tokens}}
-${BASE_CSS}
-${wb ? WB_EXTRA_CSS : ''}
-</style></head>
-<body><div class="deck">
-`;
-  const mermaidTheme = darkMode ? 'dark' : 'neutral';
-  const mermaidVars = darkMode
-    ? `{ primaryColor: '#58a6ff', primaryTextColor: '#f0f6fc', lineColor: '#58a6ff', background: '#161b22' }`
-    : `{ primaryColor: '#1a3a6b', primaryTextColor: '#1a1a1a', lineColor: '#1a3a6b' }`;
-  const tail = `
-</div>
-<div class="pbar"><span></span></div>
-<script>${RUNTIME_JS}</script>
-<script type="module">
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true, theme: '${mermaidTheme}', themeVariables: ${mermaidVars} });
-</script>
-</body></html>`;
-  return { head, tail };
-}
-
-// ─── Slide count distributions ────────────────────────────────────────────────
-export const SLIDE_DISTRIBUTIONS: Record<number, string[]> = {
-  6:  ['title','agenda','content','diagram','takeaways','end'],
-  10: ['title','agenda','content','content','stats','diagram','case-study','quote','takeaways','end'],
-  15: ['title','agenda','content','content','stats','content','diagram','content','case-study','diagram','case-study','quote','takeaways','takeaways','end'],
-  20: ['title','agenda','content','content','stats','content','diagram','content','case-study','diagram','case-study','stats','content','diagram','case-study','content','quote','takeaways','takeaways','end'],
-  30: ['title','agenda','content','content','stats','content','diagram','content','case-study','diagram','content','case-study','stats','content','diagram','case-study','content','stats','diagram','content','case-study','diagram','quote','content','diagram','case-study','takeaways','takeaways','takeaways','end'],
-};
-
-// ─── Image generation (nano-banana-pro — pure visuals, NO TEXT) ──────────────
-export async function genImage(slidePrompt: string, styleAnchor: string, moduleCtx: string): Promise<string|null> {
+// ─── Slide image generation (nano-banana-pro — complete slide rendering) ──────
+export async function genSlideImage(fullPrompt: string): Promise<string | null> {
   if (!process.env.FAL_KEY) return null;
-  const fullPrompt = `${styleAnchor}\n\n${moduleCtx}\n\n${slidePrompt}\n\nIMPORTANT: NO TEXT. NO WORDS. NO LETTERS. NO LABELS. NO CAPTIONS. Purely visual.`;
   try {
     const res = await fetch('https://fal.run/fal-ai/nano-banana-pro', {
       method: 'POST',
-      headers: { Authorization: `Key ${process.env.FAL_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt, image_size: 'landscape_4_3', num_images: 1 }),
-      signal: AbortSignal.timeout(60000),
+      headers: {
+        Authorization: `Key ${process.env.FAL_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: fullPrompt,
+        image_size: 'landscape_16_9',
+        num_images: 1,
+      }),
+      signal: AbortSignal.timeout(90000),
     });
     if (!res.ok) return null;
     const data = await res.json();
     return (data.images?.[0]?.url as string) ?? null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-// ─── Mermaid diagram generation (Claude Haiku) ───────────────────────────────
-export async function genDiagram(description: string, _primaryColor: string): Promise<string|null> {
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  try {
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      messages: [{
-        role: 'user',
-        content: `Generate a Mermaid diagram for the following topic.
-Topic: ${description}
-Rules:
-- Return ONLY valid Mermaid syntax. No markdown fences. No explanation. No \`\`\`mermaid wrapper.
-- Choose the most appropriate type: flowchart LR, graph TD, timeline, sequenceDiagram, or quadrantChart
-- Keep it concise: 5–8 nodes maximum
-- Use short labels (2–4 words per node)
-- Start directly with the diagram type keyword (e.g. "flowchart LR" or "graph TD")
-- Do NOT add any "style", "classDef", or "class" directives — diagram theming is handled externally`,
-      }],
-    });
-    const raw = msg.content
-      .filter(b => b.type === 'text')
-      .map(b => (b as {type:'text';text:string}).text)
-      .join('')
-      .trim()
-      .replace(/^```(?:mermaid)?\n?/i, '')
-      .replace(/\n?```$/i, '')
-      .split('\n')
-      .filter(line => !line.match(/^\s*(style|classDef|class)\s/i))
-      .join('\n')
-      .trim();
-    return raw.length > 10 ? raw : null;
-  } catch { return null; }
-}
-
-// ─── Content prompt (for Qwen3 32B via OpenRouter) ────────────────────────────
-export function buildContentPrompt(topics: string[], title: string, semester: number, moduleNum: number, hours: number, tools: string[], indianCase: string|undefined, globalCase: string|undefined, outcomes: string[]|undefined, slideSequence: string[], customPrompt: string): string {
+// ─── Content prompt (Claude Sonnet — 16-type pedagogy with visualPrompt) ──────
+export function buildContentPrompt(
+  topics: string[],
+  title: string,
+  semester: number,
+  moduleNum: number,
+  hours: number,
+  tools: string[],
+  indianCase: string | undefined,
+  globalCase: string | undefined,
+  outcomes: string[] | undefined,
+  slideSequence: string[],
+  customPrompt: string,
+): string {
   const info = [
     `Title: ${title}`,
     `Semester ${semester}, Module ${moduleNum} | ${hours} hours`,
@@ -589,36 +383,88 @@ export function buildContentPrompt(topics: string[], title: string, semester: nu
     outcomes?.length ? `Learning Outcomes: ${outcomes.join('; ')}` : '',
   ].filter(Boolean).join('\n');
 
-  const typeSchemas = `SLIDE TYPE SCHEMAS (use exactly these fields):
-- title: {"type":"title","title":"max 6 words","subtitle":"max 10 words","badge":"Sem ${semester} · Mod ${moduleNum}"}
-- agenda: {"type":"agenda","eyebrow":"short uppercase label","title":"agenda title","items":[{"n":"01","label":"max 4 words","desc":"max 8 words"}]}
-- content: {"type":"content","eyebrow":"short label","title":"max 6 words","points":["max 7 words each, 4 items"],"imagePrompt":"20-30 words, PURELY VISUAL SCENE, absolutely no text/words/labels described"}
-- stats: {"type":"stats","eyebrow":"short label","title":"max 6 words","stats":[{"value":"73M","label":"max 4 words"},{"value":"42%","label":"max 4 words"},{"value":"₹2.3T","label":"max 4 words"}]}
-- case-study: {"type":"case-study","tag":"India or Global","company":"real company name","headline":"max 8 words","story":"max 25 words, one sentence","result":"metric or outcome","imagePrompt":"20-30 words, PURELY VISUAL SCENE, no text"}
-- quote: {"type":"quote","text":"real quote max 20 words","author":"real person name","role":"title/company"}
-- takeaways: {"type":"takeaways","title":"Key Takeaways","items":["max 8 words each, 6 items"]}
-- diagram: {"type":"diagram","eyebrow":"short label","title":"max 6 words","description":"concise caption ≤15 words (NOT a design brief), e.g. 'Four-stage RACE framework: Reach, Act, Convert, Engage'"}
-- end: {"type":"end","title":"Thank You","next":"Next: Module X — topic name"}`;
+  const depthInstruction = slideSequence.length === 10
+    ? `DEPTH: 10-slide deck = BREADTH-FIRST coverage. Cover ALL topics concisely. Every input topic must appear at least once. Prioritize breadth over depth. Be concise in each slide.`
+    : `DEPTH: 20-slide deck = DEEP-DIVE treatment. Cover ALL topics with full pedagogical depth. Use multiple examples, reflections, and exercises. Expand every concept fully.`;
 
-  return `/no_think
-You are generating BBA university course presentation slides. Return ONLY valid JSON. No markdown, no explanation, no <think> tags.
+  const typeSchemas = `SLIDE TYPE SCHEMAS — generate EXACTLY these JSON shapes:
 
-MODULE:
+title:
+{"type":"title","title":"max 8 words — module name","subtitle":"max 12 words — module hook","badge":"Sem ${semester} · Mod ${moduleNum}","visualPrompt":"FULL SLIDE DESCRIPTION: title text top-left in large bold font, subtitle below in medium weight, right side abstract decorative geometric shape in theme color, bottom-left BBA Online logo area, background color appropriate to theme. Include actual title and subtitle text."}
+
+overview:
+{"type":"overview","eyebrow":"COURSE OVERVIEW","title":"max 6 words","goals":["goal 1 max 8 words","goal 2","goal 3","goal 4"],"agendaItems":["topic 1","topic 2","topic 3","topic 4","topic 5"],"visualPrompt":"FULL SLIDE DESCRIPTION: left half numbered goal list with 4 items rendered as text, right half topic cluster diagram with topic names visible as node labels, theme color accents. Include actual goal text and topic names."}
+
+experience-trigger:
+{"type":"experience-trigger","eyebrow":"REAL-WORLD SCENARIO","scenarioTitle":"max 6 words","scenario":"2-3 sentences describing a real business scenario involving the topic","question":"One provocative discussion question?","visualPrompt":"FULL SLIDE DESCRIPTION: top 60% immersive illustration of the scenario setting (office, market, factory, etc), bottom panel has scenario title text and question text visible, dark overlay on illustration for text legibility. Include actual scenario title and question text."}
+
+reflection:
+{"type":"reflection","eyebrow":"REFLECT","title":"max 6 words","discussionQuestions":["question 1?","question 2?","question 3?"],"insight":"1-2 sentence key insight","visualPrompt":"FULL SLIDE DESCRIPTION: large thought-bubble or question-mark visual motif on left 40%, right 60% shows 3 discussion questions as styled text cards with question marks, insight text at bottom, theme color background. Include actual question text."}
+
+concept:
+{"type":"concept","eyebrow":"KEY CONCEPT","title":"concept name max 5 words","definition":"clear 1-2 sentence definition of the concept","bullets":["application or example 1","application or example 2","application or example 3"],"visualPrompt":"FULL SLIDE DESCRIPTION: left 55% has eyebrow label, large concept title, definition paragraph, 3 bullet points all as visible text; right 45% has conceptual diagram, icon cluster, or metaphor illustration. Include actual definition and bullet text."}
+
+process-flow:
+{"type":"process-flow","eyebrow":"THE PROCESS","title":"max 6 words","steps":[{"label":"Step 1 Name","summary":"one-line description"},{"label":"Step 2 Name","summary":"one-line description"},{"label":"Step 3 Name","summary":"one-line description"},{"label":"Step 4 Name","summary":"one-line description"}],"visualPrompt":"FULL SLIDE DESCRIPTION: horizontal left-to-right arrow flow diagram with 4 numbered stage boxes, each box shows step label text and summary text below, connecting arrows between boxes, theme accent color. Include actual step names and summaries."}
+
+comparison:
+{"type":"comparison","eyebrow":"COMPARE","title":"max 6 words","columns":[{"heading":"Option A Name","points":["point 1","point 2","point 3"]},{"heading":"Option B Name","points":["point 1","point 2","point 3"]}],"visualPrompt":"FULL SLIDE DESCRIPTION: 2 equal-width columns with thin divider, each column shows heading text in accent color, 3 bullet points as readable text, light alternating column backgrounds, comparison title at top. Include actual column headings and points."}
+
+framework:
+{"type":"framework","eyebrow":"FRAMEWORK","title":"framework name max 6 words","modelName":"full model name e.g. SWOT Analysis","segments":[{"label":"Segment 1","description":"1-sentence description"},{"label":"Segment 2","description":"1-sentence description"},{"label":"Segment 3","description":"1-sentence description"},{"label":"Segment 4","description":"1-sentence description"}],"visualPrompt":"FULL SLIDE DESCRIPTION: right 55% shows large 2x2 quadrant matrix or 4-segment ring diagram with each segment labeled with visible text; left 45% shows framework name title, 4 annotation bullets with segment names. Include actual segment labels and descriptions."}
+
+worked-example:
+{"type":"worked-example","eyebrow":"WORKED EXAMPLE","title":"max 6 words","problem":"1-2 sentences describing the problem or input","process":["reasoning step 1 max 10 words","reasoning step 2 max 10 words","reasoning step 3 max 10 words"],"result":"the outcome or solution in 1-2 sentences","visualPrompt":"FULL SLIDE DESCRIPTION: 3-panel horizontal layout — left panel (shaded) shows Problem text, center panel shows numbered process steps with arrows, right panel (highlighted in theme accent) shows Result text. All text visible and readable. Include actual problem and result text."}
+
+example-case:
+{"type":"example-case","tag":"India","company":"real Indian company e.g. Zomato, Infosys, Tata Motors","scenario":"2-3 sentence real scenario description","question":"one discussion question?","outcome":"metric or business result achieved","visualPrompt":"FULL SLIDE DESCRIPTION: top-left company name in bold, India/Global badge pill, left 50% shows scenario text and question text, right 50% shows contextual illustration (office scene, product, market), outcome text in accent-colored badge at bottom. Include actual company name and scenario text."}
+
+exercise:
+{"type":"exercise","eyebrow":"ACTIVITY","title":"exercise title max 6 words","taskInstructions":"1-2 sentences describing the task","steps":["step 1 instruction","step 2 instruction","step 3 instruction","step 4 instruction"],"timeAllotted":"e.g. 15 minutes","visualPrompt":"FULL SLIDE DESCRIPTION: bold activity title at top, task instruction text below, numbered checklist with 4 steps each with checkbox visual, time badge in bottom-right corner (e.g. '15 MIN'), theme accent colors. Include actual step instructions and time."}
+
+prototype-studio:
+{"type":"prototype-studio","eyebrow":"STUDIO","brief":"1-2 sentence creative brief for what to make","makingSteps":["making step 1","making step 2","making step 3","making step 4"],"templateBoxes":["Box 1 label","Box 2 label","Box 3 label","Box 4 label"],"visualPrompt":"FULL SLIDE DESCRIPTION: brief text at top, below 4 equal dashed-border workspace template boxes labeled with box names, process arrows connecting boxes left to right, template boxes have dotted/dashed outlines suggesting blank workspace. Include actual brief text and box labels."}
+
+test-feedback:
+{"type":"test-feedback","eyebrow":"EVALUATE","title":"max 6 words","criteria":[{"label":"Criterion 1","description":"what to assess"},{"label":"Criterion 2","description":"what to assess"},{"label":"Criterion 3","description":"what to assess"},{"label":"Criterion 4","description":"what to assess"}],"feedbackExamples":{"good":"example of strong response","poor":"example of weak response"},"visualPrompt":"FULL SLIDE DESCRIPTION: left half shows rubric table with 4 rows (criterion labels visible), right half shows two cards — green-tinted Good Example card and red-tinted Poor Example card, both showing example text. Include actual criterion names and example text."}
+
+summary:
+{"type":"summary","eyebrow":"KEY TAKEAWAYS","title":"max 6 words","takeaways":["takeaway 1 max 10 words","takeaway 2","takeaway 3","takeaway 4","takeaway 5"],"visualPrompt":"FULL SLIDE DESCRIPTION: left-center large numbered list with 5 takeaways rendered as readable text with accent-color numbers, right side abstract upward-arrow or ascending graph motif, warm closure visual mood. Include actual takeaway text."}
+
+checklist:
+{"type":"checklist","eyebrow":"DO'S AND DON'TS","title":"max 6 words","doItems":["do item 1 max 8 words","do item 2","do item 3","do item 4"],"avoidItems":["avoid item 1 max 8 words","avoid item 2","avoid item 3","avoid item 4"],"visualPrompt":"FULL SLIDE DESCRIPTION: two-column layout with vertical center divider — left column (green accent) shows DO list with checkmarks, right column (red accent) shows AVOID list with X marks, all items visible as text. Include actual do and avoid items."}
+
+transition-recap:
+{"type":"transition-recap","eyebrow":"RECAP & PREVIEW","recapTitle":"What We Covered","recapPoints":["recap point 1","recap point 2","recap point 3"],"previewTitle":"Coming Up Next","previewPoints":["preview point 1","preview point 2","preview point 3"],"visualPrompt":"FULL SLIDE DESCRIPTION: left half (slightly darker background) shows Recap heading text and 3 recap bullet points, right half (lighter background) shows Preview heading text and 3 preview bullet points, vertical divider line with right-pointing arrow motif in center. Include actual recap and preview text."}`;
+
+  return `You are generating BBA university course presentation slides following the Design Thinking + Kolb Experiential Learning pedagogy framework. Return ONLY valid JSON. No markdown, no explanation, no <think> tags.
+
+MODULE INFORMATION:
 ${info}
 
-SLIDE SEQUENCE (generate EXACTLY ${slideSequence.length} slides in this order):
-${slideSequence.map((t,i)=>`${i+1}. ${t}`).join('\n')}
+SLIDE SEQUENCE — generate EXACTLY ${slideSequence.length} slides in this exact order:
+${slideSequence.map((t, i) => `${i + 1}. ${t}`).join('\n')}
+
+${depthInstruction}
 ${customPrompt ? `\nEXTRA INSTRUCTIONS: ${customPrompt}` : ''}
 
 ${typeSchemas}
 
-RULES:
-- Use REAL data: real companies, real statistics, real quotes from Indian/global business context
-- imagePrompt fields: describe ONLY abstract visual scenes (colors, shapes, textures, mood) — NEVER describe text, labels, charts with text, or UI elements
-- All text content must be concise and within word limits
-- Indian case studies should use Indian companies (Infosys, Reliance, Flipkart, Zomato, Tata, HDFC, etc.)
-- Global case studies use global companies (Apple, Amazon, Google, McKinsey, etc.)
+CRITICAL RULES:
+1. Use REAL data: real companies (Infosys, Zomato, Tata Motors, HDFC Bank, Flipkart for India; Apple, McKinsey, Amazon, Google, Unilever for Global), real statistics, real business scenarios.
+2. Cover ALL input topics across the slides. Do not skip any topic from the module topics list.
+3. visualPrompt MUST describe the COMPLETE RENDERED SLIDE including:
+   - Actual title text visible in the image
+   - Actual body content (definitions, bullets, steps, etc.) as rendered text
+   - Layout description (which elements are where)
+   - Visual metaphor or diagram type
+   - Color mood and theme
+   BAD: "abstract diagram of marketing concepts"
+   GOOD: "Slide titled 'What is Digital Marketing?' at top. Left 55%: definition text 'Digital marketing uses online channels to reach target audiences', three bullets: Search & Social Media, Email & Content Marketing, Analytics & ROI. Right 45%: circular interconnected nodes diagram representing digital touchpoints, blue-violet gradient, clean white background."
+4. All text content must fit the slide — concise and scannable.
+5. Indian example-case slides: use Indian companies. Global example-case slides: use global companies.
+6. The visualPrompt for every slide must include the actual text that should appear on that slide.
 
-RETURN THIS EXACT JSON:
-{"slides":[...all ${slideSequence.length} slides...]}`;
+RETURN THIS EXACT JSON FORMAT:
+{"slides":[...all ${slideSequence.length} slides in the exact sequence above...]}`;
 }
