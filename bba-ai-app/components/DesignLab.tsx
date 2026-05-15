@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { ParsedModule, SlideState, SlideCount } from '@/lib/types';
+import { THEME_STYLE_DESCRIPTORS, SLIDE_LAYOUT_DESCRIPTORS } from '@/lib/design-lab.server';
 
 interface Props {
   module: ParsedModule;
@@ -10,8 +11,12 @@ interface Props {
 }
 
 const SLIDE_COUNTS: { value: SlideCount; label: string; description: string }[] = [
-  { value: 10, label: '10 slides', description: 'Quick overview — all topics, concise' },
-  { value: 20, label: '20 slides', description: 'Deep dive — full pedagogical treatment' },
+  { value: 5,      label: '5',    description: 'Lightning overview' },
+  { value: 10,     label: '10',   description: 'Quick overview' },
+  { value: 15,     label: '15',   description: 'Balanced' },
+  { value: 20,     label: '20',   description: 'Deep dive' },
+  { value: 30,     label: '30',   description: 'Comprehensive' },
+  { value: 'auto', label: 'AUTO', description: 'AI picks best length' },
 ];
 
 const DIRECTIONS = [
@@ -53,334 +58,50 @@ function getSlideTitle(s: SlideState): string {
   return SLIDE_TYPE_LABELS[s.type] ?? s.type;
 }
 
-// ─── Edit form ────────────────────────────────────────────────────────────────
-function EditField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="mb-3">
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400"
-      />
-    </div>
-  );
-}
-
-function EditTextArea({ label, value, onChange, rows = 3 }: { label: string; value: string; onChange: (v: string) => void; rows?: number }) {
-  return (
-    <div className="mb-3">
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</label>
-      <textarea
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        rows={rows}
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none"
-      />
-    </div>
-  );
-}
-
-function SlideEditForm({
+// ─── Prompt editor ────────────────────────────────────────────────────────────
+function PromptEditor({
   slide,
+  direction,
+  moduleTitle,
   onChange,
 }: {
   slide: SlideState;
+  direction: string;
+  moduleTitle: string;
   onChange: (updated: Record<string, unknown>) => void;
 }) {
-  const c = slide.content;
-  const set = (key: string, val: unknown) => onChange({ ...c, [key]: val });
-  const setArrayItem = (key: string, idx: number, val: string) => {
-    const arr = [...((c[key] as string[]) ?? [])];
-    arr[idx] = val;
-    onChange({ ...c, [key]: arr });
-  };
+  const styleBlock = (THEME_STYLE_DESCRIPTORS[direction] ?? THEME_STYLE_DESCRIPTORS['modern-minimal']).trim();
+  const layoutBlock = (SLIDE_LAYOUT_DESCRIPTORS[slide.type] ?? '').trim();
+  const contextBlock = `Academic BBA course topic: ${moduleTitle}.`;
+  const renderBlock = `CRITICAL: This is a COMPLETE SLIDE IMAGE. Include ALL text, labels, titles, and content visible as rendered slide text. Render as a polished 16:9 presentation slide. Typography must be legible at presentation scale. No lorem ipsum. Use the actual content described.`;
+  const visualPrompt = String((slide.content as Record<string, unknown>).visualPrompt ?? '');
 
-  const VisualPromptField = () => (
-    <EditTextArea
-      label="Visual Prompt (edit to change image)"
-      value={String(c.visualPrompt ?? '')}
-      onChange={v => set('visualPrompt', v)}
-      rows={4}
-    />
+  return (
+    <div className="space-y-2">
+      <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Style + Layout (read-only)</p>
+        <p className="text-xs text-gray-400 leading-relaxed line-clamp-3">{styleBlock} {layoutBlock} {contextBlock}</p>
+      </div>
+
+      <div className="rounded-lg border-2 border-orange-400 bg-orange-50 p-3">
+        <p className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-1">Visual Description ← edit this to change the image</p>
+        <textarea
+          value={visualPrompt}
+          onChange={e => onChange({ ...slide.content, visualPrompt: e.target.value })}
+          rows={5}
+          className="w-full bg-transparent text-sm text-gray-800 focus:outline-none resize-none"
+          placeholder="Describe what should appear on this slide…"
+        />
+      </div>
+
+      <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Render Instructions (read-only)</p>
+        <p className="text-xs text-gray-400 leading-relaxed line-clamp-2">{renderBlock}</p>
+      </div>
+    </div>
   );
-
-  switch (slide.type) {
-    case 'title':
-      return (
-        <>
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          <EditField label="Subtitle" value={String(c.subtitle ?? '')} onChange={v => set('subtitle', v)} />
-          <EditField label="Badge" value={String(c.badge ?? '')} onChange={v => set('badge', v)} />
-          <VisualPromptField />
-        </>
-      );
-
-    case 'overview':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.goals as string[]) ?? []).map((g, i) => (
-            <EditField key={i} label={`Goal ${i + 1}`} value={g} onChange={v => setArrayItem('goals', i, v)} />
-          ))}
-          {((c.agendaItems as string[]) ?? []).map((item, i) => (
-            <EditField key={i} label={`Agenda Item ${i + 1}`} value={item} onChange={v => setArrayItem('agendaItems', i, v)} />
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'experience-trigger':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Scenario Title" value={String(c.scenarioTitle ?? '')} onChange={v => set('scenarioTitle', v)} />
-          <EditTextArea label="Scenario" value={String(c.scenario ?? '')} onChange={v => set('scenario', v)} />
-          <EditField label="Question" value={String(c.question ?? '')} onChange={v => set('question', v)} />
-          <VisualPromptField />
-        </>
-      );
-
-    case 'reflection':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.discussionQuestions as string[]) ?? []).map((q, i) => (
-            <EditField key={i} label={`Question ${i + 1}`} value={q} onChange={v => setArrayItem('discussionQuestions', i, v)} />
-          ))}
-          <EditTextArea label="Insight" value={String(c.insight ?? '')} onChange={v => set('insight', v)} />
-          <VisualPromptField />
-        </>
-      );
-
-    case 'concept':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          <EditTextArea label="Definition" value={String(c.definition ?? '')} onChange={v => set('definition', v)} />
-          {((c.bullets as string[]) ?? []).map((b, i) => (
-            <EditField key={i} label={`Bullet ${i + 1}`} value={b} onChange={v => setArrayItem('bullets', i, v)} />
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'process-flow':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.steps as Array<{ label: string; summary: string }>) ?? []).map((step, i) => (
-            <div key={i} className="mb-3 pl-3 border-l-2 border-orange-200">
-              <p className="text-xs text-gray-400 mb-1">Step {i + 1}</p>
-              <EditField label="Label" value={step.label} onChange={v => {
-                const steps = [...(c.steps as typeof step[])];
-                steps[i] = { ...step, label: v };
-                set('steps', steps);
-              }} />
-              <EditField label="Summary" value={step.summary} onChange={v => {
-                const steps = [...(c.steps as typeof step[])];
-                steps[i] = { ...step, summary: v };
-                set('steps', steps);
-              }} />
-            </div>
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'comparison':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.columns as Array<{ heading: string; points: string[] }>) ?? []).map((col, ci) => (
-            <div key={ci} className="mb-3 pl-3 border-l-2 border-orange-200">
-              <p className="text-xs text-gray-400 mb-1">Column {ci + 1}</p>
-              <EditField label="Heading" value={col.heading} onChange={v => {
-                const cols = [...(c.columns as typeof col[])];
-                cols[ci] = { ...col, heading: v };
-                set('columns', cols);
-              }} />
-              {col.points.map((pt, pi) => (
-                <EditField key={pi} label={`Point ${pi + 1}`} value={pt} onChange={v => {
-                  const cols = [...(c.columns as typeof col[])];
-                  const pts = [...col.points];
-                  pts[pi] = v;
-                  cols[ci] = { ...col, points: pts };
-                  set('columns', cols);
-                }} />
-              ))}
-            </div>
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'framework':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          <EditField label="Model Name" value={String(c.modelName ?? '')} onChange={v => set('modelName', v)} />
-          {((c.segments as Array<{ label: string; description: string }>) ?? []).map((seg, i) => (
-            <div key={i} className="mb-3 pl-3 border-l-2 border-orange-200">
-              <p className="text-xs text-gray-400 mb-1">Segment {i + 1}</p>
-              <EditField label="Label" value={seg.label} onChange={v => {
-                const segs = [...(c.segments as typeof seg[])];
-                segs[i] = { ...seg, label: v };
-                set('segments', segs);
-              }} />
-              <EditField label="Description" value={seg.description} onChange={v => {
-                const segs = [...(c.segments as typeof seg[])];
-                segs[i] = { ...seg, description: v };
-                set('segments', segs);
-              }} />
-            </div>
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'worked-example':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          <EditTextArea label="Problem" value={String(c.problem ?? '')} onChange={v => set('problem', v)} />
-          {((c.process as string[]) ?? []).map((p, i) => (
-            <EditField key={i} label={`Process Step ${i + 1}`} value={p} onChange={v => setArrayItem('process', i, v)} />
-          ))}
-          <EditTextArea label="Result" value={String(c.result ?? '')} onChange={v => set('result', v)} />
-          <VisualPromptField />
-        </>
-      );
-
-    case 'example-case':
-      return (
-        <>
-          <EditField label="Tag (India or Global)" value={String(c.tag ?? '')} onChange={v => set('tag', v)} />
-          <EditField label="Company" value={String(c.company ?? '')} onChange={v => set('company', v)} />
-          <EditTextArea label="Scenario" value={String(c.scenario ?? '')} onChange={v => set('scenario', v)} />
-          <EditField label="Question" value={String(c.question ?? '')} onChange={v => set('question', v)} />
-          <EditField label="Outcome" value={String(c.outcome ?? '')} onChange={v => set('outcome', v)} />
-          <VisualPromptField />
-        </>
-      );
-
-    case 'exercise':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          <EditTextArea label="Task Instructions" value={String(c.taskInstructions ?? '')} onChange={v => set('taskInstructions', v)} />
-          {((c.steps as string[]) ?? []).map((s, i) => (
-            <EditField key={i} label={`Step ${i + 1}`} value={s} onChange={v => setArrayItem('steps', i, v)} />
-          ))}
-          <EditField label="Time Allotted" value={String(c.timeAllotted ?? '')} onChange={v => set('timeAllotted', v)} />
-          <VisualPromptField />
-        </>
-      );
-
-    case 'prototype-studio':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditTextArea label="Brief" value={String(c.brief ?? '')} onChange={v => set('brief', v)} />
-          {((c.makingSteps as string[]) ?? []).map((s, i) => (
-            <EditField key={i} label={`Making Step ${i + 1}`} value={s} onChange={v => setArrayItem('makingSteps', i, v)} />
-          ))}
-          {((c.templateBoxes as string[]) ?? []).map((b, i) => (
-            <EditField key={i} label={`Template Box ${i + 1}`} value={b} onChange={v => setArrayItem('templateBoxes', i, v)} />
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'test-feedback':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.criteria as Array<{ label: string; description: string }>) ?? []).map((cr, i) => (
-            <div key={i} className="mb-3 pl-3 border-l-2 border-orange-200">
-              <p className="text-xs text-gray-400 mb-1">Criterion {i + 1}</p>
-              <EditField label="Label" value={cr.label} onChange={v => {
-                const crit = [...(c.criteria as typeof cr[])];
-                crit[i] = { ...cr, label: v };
-                set('criteria', crit);
-              }} />
-              <EditField label="Description" value={cr.description} onChange={v => {
-                const crit = [...(c.criteria as typeof cr[])];
-                crit[i] = { ...cr, description: v };
-                set('criteria', crit);
-              }} />
-            </div>
-          ))}
-          {(() => {
-            const fe = (c.feedbackExamples as { good: string; poor: string }) ?? { good: '', poor: '' };
-            return (
-              <>
-                <EditTextArea label="Good Example" value={fe.good} onChange={v => set('feedbackExamples', { ...fe, good: v })} />
-                <EditTextArea label="Poor Example" value={fe.poor} onChange={v => set('feedbackExamples', { ...fe, poor: v })} />
-              </>
-            );
-          })()}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'summary':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.takeaways as string[]) ?? []).map((t, i) => (
-            <EditField key={i} label={`Takeaway ${i + 1}`} value={t} onChange={v => setArrayItem('takeaways', i, v)} />
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'checklist':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Title" value={String(c.title ?? '')} onChange={v => set('title', v)} />
-          {((c.doItems as string[]) ?? []).map((d, i) => (
-            <EditField key={i} label={`Do ${i + 1}`} value={d} onChange={v => setArrayItem('doItems', i, v)} />
-          ))}
-          {((c.avoidItems as string[]) ?? []).map((a, i) => (
-            <EditField key={i} label={`Avoid ${i + 1}`} value={a} onChange={v => setArrayItem('avoidItems', i, v)} />
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    case 'transition-recap':
-      return (
-        <>
-          <EditField label="Eyebrow" value={String(c.eyebrow ?? '')} onChange={v => set('eyebrow', v)} />
-          <EditField label="Recap Title" value={String(c.recapTitle ?? '')} onChange={v => set('recapTitle', v)} />
-          {((c.recapPoints as string[]) ?? []).map((p, i) => (
-            <EditField key={i} label={`Recap Point ${i + 1}`} value={p} onChange={v => setArrayItem('recapPoints', i, v)} />
-          ))}
-          <EditField label="Preview Title" value={String(c.previewTitle ?? '')} onChange={v => set('previewTitle', v)} />
-          {((c.previewPoints as string[]) ?? []).map((p, i) => (
-            <EditField key={i} label={`Preview Point ${i + 1}`} value={p} onChange={v => setArrayItem('previewPoints', i, v)} />
-          ))}
-          <VisualPromptField />
-        </>
-      );
-
-    default:
-      return <p className="text-xs text-gray-400">No editable fields for this slide type.</p>;
-  }
 }
+
 
 // ─── Null image fallback card ────────────────────────────────────────────────
 function SlideImageFallback({ slide }: { slide: SlideState }) {
@@ -409,7 +130,8 @@ function SlideImageFallback({ slide }: { slide: SlideState }) {
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function DesignLab({ module, onBack, onRestart }: Props) {
   const [direction, setDirection] = useState('modern-minimal');
-  const [slideCount, setSlideCount] = useState<SlideCount>(10);
+  const [slideCount, setSlideCount] = useState<SlideCount>('auto');
+  const [resolvedCount, setResolvedCount] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [slides, setSlides] = useState<(SlideState | undefined)[]>([]);
@@ -419,6 +141,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState<Record<string, unknown>>({});
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -456,6 +179,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
     setStatus('streaming');
     setSlides([]);
     setTotalSlides(0);
+    setResolvedCount(null);
     setErrorMsg('');
     setEditingIndex(null);
     setCurrentSlide(0);
@@ -505,6 +229,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
               const total = Number(event.total);
               setTotalSlides(total);
               setSlides(new Array(total).fill(undefined));
+              if (event.resolvedCount) setResolvedCount(Number(event.resolvedCount));
             } else if (event.event === 'slide') {
               const idx = Number(event.index);
               setSlides(prev => {
@@ -556,11 +281,34 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
         a.download = `${slug}-slide-${String(i + 1).padStart(2, '0')}-${slide.type}.png`;
         a.click();
         URL.revokeObjectURL(url);
-        // Small delay to avoid browser blocking multiple downloads
         await new Promise(r => setTimeout(r, 200));
-      } catch {
-        // Skip slides that fail to download
-      }
+      } catch { /* skip */ }
+    }
+  }
+
+  async function handleDownloadPptx() {
+    if (doneSlides.length === 0) return;
+    setIsDownloadingPptx(true);
+    try {
+      const slug = module.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      const res = await fetch('/api/design-lab/export-pptx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrls: doneSlides.map(s => s.imageUrl),
+          title: module.title,
+        }),
+      });
+      if (!res.ok) throw new Error('PPTX export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${slug}-slides.pptx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloadingPptx(false);
     }
   }
 
@@ -642,32 +390,38 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
       </div>
 
       {/* ── Controls ── */}
-      <div className="grid grid-cols-1 gap-4 mb-5 lg:grid-cols-3">
+      <div className="flex flex-col gap-4 mb-5">
 
-        {/* Slide count + custom prompt */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* Row 1: Slide count + custom prompt */}
+        <div className="flex gap-4 flex-wrap items-end">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Slide Count</p>
-            <div className="flex gap-3 flex-wrap">
+            <div className="flex items-center gap-2 mb-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Slide Count</p>
+              {slideCount === 'auto' && resolvedCount && (
+                <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                  Auto → {resolvedCount} slides
+                </span>
+              )}
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
               {SLIDE_COUNTS.map(sc => (
                 <button
                   key={sc.value}
                   onClick={() => setSlideCount(sc.value)}
-                  className={`px-4 py-2.5 rounded-xl border-2 text-left transition-all ${
+                  title={sc.description}
+                  className={`px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${
                     slideCount === sc.value
                       ? 'border-orange-500 bg-orange-50 text-orange-700'
                       : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                   }`}
                 >
-                  <div className="text-sm font-semibold">{sc.label}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{sc.description}</div>
+                  {sc.label}
                 </button>
               ))}
             </div>
           </div>
-
-          <div>
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
+          <div className="flex-1 min-w-48">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
               Custom Instructions <span className="font-normal text-gray-400 normal-case">(optional)</span>
             </label>
             <input
@@ -675,31 +429,31 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
               value={customPrompt}
               onChange={e => setCustomPrompt(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && status !== 'streaming' && handleGenerate()}
-              placeholder='e.g. "Focus on AI tools used in India" or "Add a SWOT analysis slide"'
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 text-gray-700 placeholder-gray-400"
+              placeholder='e.g. "Focus on AI tools used in India"'
+              className="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 text-gray-700 placeholder-gray-400"
             />
           </div>
         </div>
 
-        {/* Visual direction */}
+        {/* Row 2: Visual style — horizontal chips */}
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Visual Style</p>
-          <div className="space-y-1.5">
+          <div className="flex gap-2 flex-wrap">
             {DIRECTIONS.map(dir => (
               <button
                 key={dir.id}
                 onClick={() => setDirection(dir.id)}
-                className={`w-full flex items-center gap-2.5 p-2 rounded-lg border-2 text-left transition-all ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all ${
                   direction === dir.id ? 'border-orange-500 shadow-sm' : 'border-gray-200 hover:border-gray-300'
                 }`}
                 style={{ background: dir.bg }}
               >
-                <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: `linear-gradient(135deg,${dir.accent},${dir.accent}88)` }} />
-                <span className="text-xs font-semibold flex-1" style={{ color: dir.bg === '#0d1117' ? '#f0f6fc' : '#1a1a1a' }}>
+                <div className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{ background: `linear-gradient(135deg,${dir.accent},${dir.accent}88)` }} />
+                <span className="text-xs font-semibold whitespace-nowrap" style={{ color: dir.bg === '#0d1117' ? '#f0f6fc' : '#1a1a1a' }}>
                   {dir.label}
                 </span>
                 {direction === dir.id && (
-                  <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: dir.accent }} fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3 h-3 flex-shrink-0" style={{ color: dir.accent }} fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 )}
@@ -740,7 +494,22 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
               onClick={handleDownload}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-300 bg-white transition-all"
             >
-              ↓ Download Images
+              ↓ PNGs
+            </button>
+            <button
+              onClick={handleDownloadPptx}
+              disabled={isDownloadingPptx}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-300 bg-white transition-all disabled:opacity-60"
+            >
+              {isDownloadingPptx ? (
+                <>
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Building PPTX…
+                </>
+              ) : '↓ PPTX'}
             </button>
             <button
               onClick={() => { setCurrentSlide(0); setIsFullscreen(true); }}
@@ -791,7 +560,10 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                 <button
                   key={i}
                   onClick={() => {
-                    if (isDone && slide) {
+                    if (!isDone || !slide) return;
+                    if (isEditing) {
+                      setEditingIndex(null);
+                    } else {
                       openEdit(slide);
                       if (doneIdx >= 0) setCurrentSlide(doneIdx);
                     }
@@ -814,6 +586,8 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
+                    ) : isEditing ? (
+                      <span className="text-orange-500 font-bold text-sm leading-none">×</span>
                     ) : isDone ? (
                       <div className={`w-2 h-2 rounded-full ${slide?.imageUrl ? 'bg-green-400' : 'bg-orange-300'}`} />
                     ) : (
@@ -840,8 +614,8 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
       )}
 
       {/* ── Edit panel ── */}
-      {editingIndex !== null && editingSlide?.status === 'done' && (
-        <div className="mb-5 p-4 border-2 border-orange-200 rounded-2xl bg-orange-50 max-h-96 overflow-y-auto">
+      {editingIndex !== null && (editingSlide?.status === 'done' || editingSlide?.status === 'regenerating') && (
+        <div className="mb-5 p-4 border-2 border-orange-200 rounded-2xl bg-orange-50 max-h-[32rem] overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
             <div>
               <span className="text-xs font-bold text-orange-600 uppercase tracking-wider">
@@ -859,8 +633,10 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
             </button>
           </div>
 
-          <SlideEditForm
+          <PromptEditor
             slide={{ ...editingSlide, content: editContent }}
+            direction={direction}
+            moduleTitle={module.title}
             onChange={setEditContent}
           />
 
@@ -927,7 +703,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
           )}
         </div>
 
-        <div style={{ position: 'relative', paddingTop: '56.25%', background: '#f8f8f8' }}>
+        <div style={{ position: 'relative', paddingTop: '56.25%', background: '#000' }}>
           <div style={{ position: 'absolute', inset: 0 }}>
 
             {status === 'idle' && (
@@ -1042,7 +818,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                   key={fs.index}
                   src={fs.imageUrl}
                   alt={`Slide ${currentSlide + 1}`}
-                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                 />
               ) : (
                 <div className="text-white/40 text-sm">No image for this slide</div>

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const res = await fetch('https://fal.run/fal-ai/ideogram/v2', {
+    const res = await fetch('https://fal.run/fal-ai/nano-banana-pro', {
       method: 'POST',
       headers: {
         Authorization: `Key ${process.env.FAL_KEY}`,
@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         prompt,
+        negative_prompt: 'abstract art, blurry text, illegible text, distorted letters, no text, watermark, cropped, low quality, sketch, rough draft',
         aspect_ratio: '16:9',
-        style: 'design',
-        magic_prompt_option: 'OFF',
+        num_images: 1,
       }),
       signal: AbortSignal.timeout(60000),
     });

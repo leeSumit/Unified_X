@@ -5,6 +5,7 @@ import {
   buildContentPrompt,
   buildSlideImagePrompt,
   genSlideImage,
+  recommendSlideCount,
   type AnySlide,
 } from '@/lib/design-lab.server';
 
@@ -15,7 +16,13 @@ async function generateSlides(
   module: ParsedModule,
   slideSequence: string[],
   customPrompt: string,
+  resolvedCount: number,
 ): Promise<AnySlide[]> {
+  // ~650 tokens per slide + 2000 buffer; claude-sonnet-4-6 supports up to 64k output
+  const maxTokens = Math.min(64000, Math.max(6000, resolvedCount * 650 + 2000));
+  // Scale timeout: 60s base + 3s per slide, capped at 3 minutes
+  const timeoutMs = Math.min(180000, 60000 + resolvedCount * 3000);
+
   const prompt = buildContentPrompt(
     module.topics,
     module.title,
@@ -44,9 +51,9 @@ async function generateSlides(
         body: JSON.stringify({
           model: 'anthropic/claude-sonnet-4-6',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 8000,
+          max_tokens: maxTokens,
         }),
-        signal: AbortSignal.timeout(90000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (res.ok) {
         const data = await res.json();
@@ -54,7 +61,9 @@ async function generateSlides(
         const parsed = extractJson(raw);
         if (parsed?.slides?.length) return parsed.slides;
       }
-    } catch { /* fall through to Anthropic direct */ }
+    } catch (err) {
+      console.error('[OpenRouter] failed, falling back to Anthropic:', err instanceof Error ? err.message : err);
+    }
   }
 
   // Fallback: Claude Sonnet direct via Anthropic API
@@ -62,7 +71,7 @@ async function generateSlides(
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const msg = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 8000,
+    max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }],
   });
   const raw = msg.content
@@ -98,19 +107,22 @@ function sseEvent(data: unknown): Uint8Array {
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  let module: ParsedModule, direction: string, slideCount: number, customPrompt: string;
+  let module: ParsedModule, direction: string, rawSlideCount: number | 'auto', customPrompt: string, resolvedCount: number;
   try {
     const body = await request.json();
     module = body.module;
     direction = body.direction || 'modern-minimal';
-    slideCount = body.slideCount || 10;
+    rawSlideCount = body.slideCount ?? 'auto';
     customPrompt = body.customPrompt || '';
     if (!module?.title) throw new Error('Missing module');
+    resolvedCount = rawSlideCount === 'auto'
+      ? recommendSlideCount(module.topics ?? [], module.hours ?? 3)
+      : Number(rawSlideCount);
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400 });
   }
 
-  const slideSequence = SLIDE_DISTRIBUTIONS[slideCount] ?? SLIDE_DISTRIBUTIONS[10];
+  const slideSequence = SLIDE_DISTRIBUTIONS[resolvedCount] ?? SLIDE_DISTRIBUTIONS[10];
 
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
@@ -120,7 +132,7 @@ export async function POST(request: NextRequest) {
       // Pass 1: content generation (Claude Sonnet)
       let slides: AnySlide[];
       try {
-        slides = await generateSlides(module, slideSequence, customPrompt);
+        slides = await generateSlides(module, slideSequence, customPrompt, resolvedCount);
       } catch (err) {
         await writer.write(sseEvent({
           error: `Content generation failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -134,6 +146,7 @@ export async function POST(request: NextRequest) {
         event: 'init',
         total: slides.length,
         direction,
+        resolvedCount,
       }));
 
       // Pass 2: generate ALL slide images in parallel

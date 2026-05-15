@@ -16,7 +16,7 @@ export type TemplateId = 'campus-ai' | 'clean' | 'whiteboard';
 
 export type WizardStep = 'input' | 'modules' | 'artifact' | 'generate' | 'design-lab';
 
-export type SlideCount = 10 | 20;
+export type SlideCount = 5 | 10 | 15 | 20 | 30 | 'auto';
 
 export interface SlideState {
   index: number;

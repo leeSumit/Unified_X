@@ -247,43 +247,43 @@ export type AnySlide =
   | WorkedExampleSlide | ExampleCaseSlide | ExerciseSlide | PrototypeStudioSlide
   | TestFeedbackSlide | SummarySlide | ChecklistSlide | TransitionRecapSlide;
 
-// ─── Slide count distributions (10 and 20 only — Refer.pdf pedagogy) ─────────
+// ─── Slide count distributions (5/10/15/20/30 — Refer.pdf pedagogy) ─────────
 export const SLIDE_DISTRIBUTIONS: Record<number, string[]> = {
+  5: ['title', 'overview', 'concept', 'worked-example', 'summary'],
   10: [
-    'title',
-    'overview',
-    'experience-trigger',
-    'concept',
-    'process-flow',
-    'worked-example',
-    'example-case',
-    'exercise',
-    'summary',
-    'checklist',
+    'title', 'overview', 'experience-trigger', 'concept', 'process-flow',
+    'worked-example', 'example-case', 'exercise', 'summary', 'checklist',
+  ],
+  15: [
+    'title', 'overview', 'experience-trigger', 'concept', 'process-flow',
+    'comparison', 'worked-example', 'example-case', 'exercise', 'framework',
+    'reflection', 'example-case', 'summary', 'checklist', 'transition-recap',
   ],
   20: [
-    'title',
-    'overview',
-    'experience-trigger',
-    'reflection',
-    'concept',
-    'process-flow',
-    'framework',
-    'comparison',
-    'transition-recap',
-    'worked-example',
-    'example-case',
-    'reflection',
-    'exercise',
-    'prototype-studio',
-    'example-case',
-    'test-feedback',
-    'summary',
-    'checklist',
-    'transition-recap',
-    'title',
+    'title', 'overview', 'experience-trigger', 'reflection', 'concept',
+    'process-flow', 'framework', 'comparison', 'transition-recap', 'worked-example',
+    'example-case', 'reflection', 'exercise', 'prototype-studio', 'example-case',
+    'test-feedback', 'summary', 'checklist', 'transition-recap', 'title',
+  ],
+  30: [
+    'title', 'overview', 'experience-trigger', 'reflection', 'concept',
+    'process-flow', 'framework', 'comparison', 'transition-recap', 'worked-example',
+    'example-case', 'exercise', 'prototype-studio', 'concept', 'process-flow',
+    'framework', 'worked-example', 'example-case', 'reflection', 'exercise',
+    'comparison', 'example-case', 'test-feedback', 'prototype-studio', 'reflection',
+    'summary', 'checklist', 'transition-recap', 'checklist', 'title',
   ],
 };
+
+// ─── AUTO slide count recommendation (no LLM call — pure formula) ────────────
+export function recommendSlideCount(topics: string[], hours: number): 5 | 10 | 15 | 20 | 30 {
+  const score = topics.length + hours * 1.5;
+  if (score <= 4) return 5;
+  if (score <= 8) return 10;
+  if (score <= 12) return 15;
+  if (score <= 18) return 20;
+  return 30;
+}
 
 // ─── Theme → image prompt style descriptors ───────────────────────────────────
 export const THEME_STYLE_DESCRIPTORS: Record<string, string> = {
@@ -295,8 +295,8 @@ export const THEME_STYLE_DESCRIPTORS: Record<string, string> = {
   'kami-serif': 'Warm parchment #f5f4ed background, deep ink-blue #1B365D and antique gold #8B6914 accents, classical scholarly aesthetic, Garamond serif mood, authoritative academic gravitas, timeless. ',
 };
 
-// ─── Slide layout descriptors (internal — used by buildSlideImagePrompt) ──────
-const SLIDE_LAYOUT_DESCRIPTORS: Record<string, string> = {
+// ─── Slide layout descriptors (exported for UI prompt display) ───────────────
+export const SLIDE_LAYOUT_DESCRIPTORS: Record<string, string> = {
   'title': 'Full-bleed presentation title slide, 16:9. Left two-thirds: large bold title text area, subtitle below. Right third: abstract decorative shape/illustration. Logo placeholder bottom-left.',
   'overview': 'Agenda/overview slide, 16:9. Left half: numbered goal list (3-4 items) with icon placeholders. Right half: abstract cluster diagram or icon grid showing topics.',
   'experience-trigger': 'Opening scenario slide, 16:9. Top 60%: full-width immersive scene illustration. Bottom panel: scenario title and hook question text areas.',
@@ -325,12 +325,14 @@ export function buildSlideImagePrompt(slide: AnySlide, themeKey: string, moduleT
   const style = THEME_STYLE_DESCRIPTORS[themeKey] ?? THEME_STYLE_DESCRIPTORS['modern-minimal'];
   const layout = SLIDE_LAYOUT_DESCRIPTORS[slide.type] ?? '';
   const visual = (slide as { visualPrompt?: string }).visualPrompt ?? '';
+  // Lead with the slide-rendering context so the model doesn't generate abstract art
   return [
+    `PRESENTATION SLIDE, 16:9 widescreen, fully rendered with all visible text and labels.`,
     style,
     layout,
     `Academic BBA course topic: ${moduleTitle}.`,
     visual,
-    `CRITICAL: This is a COMPLETE SLIDE IMAGE. Include ALL text, labels, titles, and content visible as rendered slide text. Render as a polished 16:9 presentation slide. Typography must be legible at presentation scale. No lorem ipsum. Use the actual content described.`,
+    `Render as a complete polished presentation slide. All titles, headings, body text, bullet points, labels, and diagram annotations must be legible. No placeholder text. No lorem ipsum. No blank boxes. Photorealistic digital slide, studio-quality typography.`,
   ].join(' ');
 }
 
@@ -346,7 +348,8 @@ export async function genSlideImage(fullPrompt: string): Promise<string | null> 
       },
       body: JSON.stringify({
         prompt: fullPrompt,
-        image_size: 'landscape_16_9',
+        negative_prompt: 'abstract art, blurry text, illegible text, distorted letters, no text, watermark, cropped, low quality, sketch, rough draft',
+        aspect_ratio: '16:9',
         num_images: 1,
       }),
       signal: AbortSignal.timeout(90000),
@@ -383,9 +386,16 @@ export function buildContentPrompt(
     outcomes?.length ? `Learning Outcomes: ${outcomes.join('; ')}` : '',
   ].filter(Boolean).join('\n');
 
-  const depthInstruction = slideSequence.length === 10
-    ? `DEPTH: 10-slide deck = BREADTH-FIRST coverage. Cover ALL topics concisely. Every input topic must appear at least once. Prioritize breadth over depth. Be concise in each slide.`
-    : `DEPTH: 20-slide deck = DEEP-DIVE treatment. Cover ALL topics with full pedagogical depth. Use multiple examples, reflections, and exercises. Expand every concept fully.`;
+  const n = slideSequence.length;
+  const depthInstruction = n <= 5
+    ? `DEPTH: 5-slide deck = LIGHTNING overview. One core concept per slide. Maximum clarity, zero redundancy. Conclude sharply with the single most important takeaway.`
+    : n <= 10
+    ? `DEPTH: 10-slide deck = BREADTH-FIRST coverage. Cover ALL topics concisely. Every input topic must appear at least once. Prioritize breadth over depth. Conclude with synthesis of all topics.`
+    : n <= 15
+    ? `DEPTH: 15-slide deck = BALANCED treatment. Cover all topics with one concrete example each. Build logically, then conclude fully with career-ready takeaways.`
+    : n <= 20
+    ? `DEPTH: 20-slide deck = DEEP DIVE. Full pedagogical treatment. Each concept gets examples, exercises, and reflection. Conclude with career-ready takeaways and job-readiness signals.`
+    : `DEPTH: 30-slide deck = COMPREHENSIVE. Maximum depth. Multiple examples per concept. Must feel like a complete self-study resource. Conclude with a full synthesis and career action plan.`;
 
   const typeSchemas = `SLIDE TYPE SCHEMAS — generate EXACTLY these JSON shapes:
 
@@ -464,6 +474,11 @@ CRITICAL RULES:
 4. All text content must fit the slide — concise and scannable.
 5. Indian example-case slides: use Indian companies. Global example-case slides: use global companies.
 6. The visualPrompt for every slide must include the actual text that should appear on that slide.
+7. STAKES RULE: Every concept slide must include a consequence — what goes wrong if a student/professional doesn't understand this? (Financial loss, missed opportunity, career risk, or ethical failure.)
+8. NAME AND DATE RULE: Every statistic, case study, and framework reference must name a real company, a real year, and a real number. Never invent or approximate.
+9. NO FRAMEWORK WITHOUT FAILURE: For every framework taught, include one failure mode or common misapplication in the content.
+10. CAREER NORTH STAR: The summary and checklist slides must include job-readiness signals — relevant job titles, CV keywords, or interview-ready talking points for that module's topic.
+11. CONCLUDING RULE: The final slide (position ${slideSequence.length}) must deliver clear closure — students must leave knowing exactly what they learned, what they can do with it, and what they should do next. Never end on a process step or example — always end on synthesis.
 
 RETURN THIS EXACT JSON FORMAT:
 {"slides":[...all ${slideSequence.length} slides in the exact sequence above...]}`;
