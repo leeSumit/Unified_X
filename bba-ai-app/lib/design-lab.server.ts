@@ -287,32 +287,32 @@ export function recommendSlideCount(topics: string[], hours: number): 5 | 10 | 1
 
 // ─── Theme → image prompt style descriptors ───────────────────────────────────
 export const THEME_STYLE_DESCRIPTORS: Record<string, string> = {
-  'modern-minimal': 'Clean Swiss editorial layout, white/off-white background, strong blue-violet accent color #3b6cff, generous negative space, asymmetric composition, museum-quality typography hierarchy. ',
-  'campus-ai': 'Warm cream parchment background #F5F0E8, deep academic purple #5B2D8E and energetic orange #E8681A accents, modern Indian university aesthetic, collegial and inviting, clean sans-serif hierarchy. ',
-  'editorial': 'Warm ivory paper #fdf8f2 background, bold coral-red #c0392b accent, classical editorial newspaper aesthetic, serif display type feel, ink-and-paper mood, refined and authoritative. ',
-  'tech-dark': 'Deep dark background #0d1117, glowing blue #58a6ff and green #3fb950 neon accents, circuit-board organic shapes, data visualization aesthetic, futuristic minimal, high-contrast. ',
-  'whiteboard': 'Clean chalk-white background, navy blue #1a3a6b and gold #c9a44a marker colors, hand-drawn infographic aesthetic, flat vector educational illustration, primary color pops, textbook diagram warmth. ',
-  'kami-serif': 'Warm parchment #f5f4ed background, deep ink-blue #1B365D and antique gold #8B6914 accents, classical scholarly aesthetic, Garamond serif mood, authoritative academic gravitas, timeless. ',
+  'modern-minimal': 'You are a professional slide designer creating premium corporate presentation slides. Style: clean Swiss editorial design, crisp white background, blue-violet (#3b6cff) as the primary accent color, ample white space, strong typographic hierarchy with sans-serif fonts. Every slide must look like it belongs in a top-tier consulting firm deck. All text must be clearly legible at full screen. Render the complete slide as a finished 16:9 widescreen image.',
+  'campus-ai': 'You are a professional slide designer for modern Indian university courses. Style: warm cream (#F5F0E8) background, deep purple (#5B2D8E) and vibrant saffron-orange (#E8681A) as accent colors, welcoming academic atmosphere, clean modern typography. Slides should feel approachable, culturally resonant, and scholarly. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
+  'editorial': 'You are a professional slide designer with a premium editorial aesthetic. Style: warm ivory (#fdf8f2) background, bold coral-red (#c0392b) accent, classical editorial feel inspired by quality publishing, refined typographic treatment. Slides should feel authoritative and intellectually serious. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
+  'tech-dark': 'You are a professional slide designer for data-driven and technology presentations. Style: deep charcoal-black (#0d1117) background, electric blue (#58a6ff) and neon green (#3fb950) accents, futuristic minimal aesthetic, high-contrast design. Slides should feel precise and forward-looking. All text must be clearly legible against dark backgrounds. Render the complete slide as a finished 16:9 widescreen image.',
+  'whiteboard': 'You are a professional slide designer using an educational illustrated style. Style: clean white background, navy blue (#1a3a6b) and warm gold (#c9a44a) as main colors, textbook-quality infographic illustrations, clear and warm educational feel. Slides should feel instructive and visually engaging. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
+  'kami-serif': 'You are a professional slide designer with a classical academic aesthetic. Style: warm parchment (#f5f4ed) background, deep ink-blue (#1B365D) and antique gold (#8B6914) accents, scholarly refined typography with serif display fonts, authoritative academic gravitas. Slides should feel timeless and intellectually serious. All text must be clearly legible. Render the complete slide as a finished 16:9 widescreen image.',
 };
 
 // ─── Slide layout descriptors (exported for UI prompt display) ───────────────
 export const SLIDE_LAYOUT_DESCRIPTORS: Record<string, string> = {
-  'title': 'Full-bleed presentation title slide, 16:9. Left two-thirds: large bold title text area, subtitle below. Right third: abstract decorative shape/illustration. Logo placeholder bottom-left.',
-  'overview': 'Agenda/overview slide, 16:9. Left half: numbered goal list (3-4 items) with icon placeholders. Right half: abstract cluster diagram or icon grid showing topics.',
-  'experience-trigger': 'Opening scenario slide, 16:9. Top 60%: full-width immersive scene illustration. Bottom panel: scenario title and hook question text areas.',
-  'reflection': 'Discussion/reflection slide, 16:9. Center-left: large question mark motif or thought-bubble visual. Right: 2-3 discussion question text blocks with connecting visual lines.',
-  'concept': 'Concept definition slide, 16:9. Left 55%: eyebrow label, title, definition paragraph, 3 bullet points. Right 45%: conceptual diagram or icon illustration representing the concept.',
-  'process-flow': 'Process flow slide, 16:9. Horizontal arrow flow diagram with 4-5 numbered stages, each with label and one-line summary below. Clean linear progression left to right.',
-  'comparison': 'Comparison slide, 16:9. 2-3 equal columns separated by thin divider lines. Each column: header label, 3-4 bullet points. Background alternates lightly.',
-  'framework': 'Framework model slide, 16:9. Large central labeled diagram (quadrant, layered ring, or matrix) occupying right 55%. Left 45%: framework name title and 4 bullet annotations.',
-  'worked-example': 'Worked example slide, 16:9. Three-panel horizontal layout. Left panel (input/problem): shaded background. Center panel (process/reasoning): arrows and steps. Right panel (output/result): highlighted conclusion.',
-  'example-case': 'Case study slide, 16:9. Top: company/case name with tag badge. Left 50%: scenario paragraph and question text. Right 50%: timeline storyboard or contextual scene illustration.',
-  'exercise': 'Exercise/activity slide, 16:9. Top: bold task instruction banner. Center: numbered checklist steps with checkbox visuals. Bottom-right: time allocation badge.',
-  'prototype-studio': 'Studio/making slide, 16:9. Top strip: brief text. Below: 3-4 equal-width template boxes with dashed borders (workspace placeholders). Process arrow flow between boxes.',
-  'test-feedback': 'Rubric/feedback slide, 16:9. Left half: criteria/rubric table with 3-4 rows and rating scale. Right half: good vs poor example cards, color-coded green/red.',
-  'summary': 'Key takeaways slide, 16:9. Left-center: large numbered list (3-5 items) with icon accents. Right: abstract summary visual or upward-arrow motif. Clean warm closure feel.',
-  'checklist': 'Do vs Avoid slide, 16:9. Two-column layout. Left column (Do/Best Practice): green-accented list. Right column (Avoid/Pitfall): red-accented list. Center divider line.',
-  'transition-recap': 'Transition slide, 16:9. Left half (slightly darker bg): Recap heading + 2-3 bullet points. Right half (lighter bg): Preview heading + 2-3 bullet points. Vertical divider with arrow motif.',
+  'title': 'This is the opening title slide for the module. Display the module name as a large prominent heading and include an engaging subtitle that sets up the learning journey. Add a course badge. The visual should feel like an energetic, professional invitation to learn.',
+  'overview': 'This is an agenda/overview slide. Show the learning goals as a clear numbered or bulleted list and visually represent the key topics to be covered. The mood is organized and welcoming — students should feel oriented.',
+  'experience-trigger': 'This is an opening hook slide. Present a vivid, relatable real-world business scenario that students can connect to. Include a single provocative discussion question. The visual should feel immediate and emotionally engaging.',
+  'reflection': 'This is a discussion/reflection slide. Present 2-3 open-ended questions that invite students to think critically and connect theory to their own experience. The visual mood is contemplative and open.',
+  'concept': 'This is a concept definition slide. Show the concept name as a clear heading, provide a precise 1-2 sentence definition, list 3 real-world applications or examples as bullets, and include a supporting visual metaphor that makes the concept intuitive.',
+  'process-flow': 'This is a process flow slide. Illustrate the sequential stages of a process with labeled steps, brief one-line descriptions for each, and clear visual flow indicators showing progression from start to finish.',
+  'comparison': 'This is a comparison slide. Show two or more options as distinct parallel columns, each with its name and key characteristics. Students should instantly grasp the similarities and differences.',
+  'framework': 'This is a framework model slide. Display the framework name prominently, render its structure as a clear diagram (quadrant matrix, ring model, or layered pyramid), and annotate each component with a concise label and brief explanation.',
+  'worked-example': 'This is a worked example slide. Present a real-world problem clearly, walk through the step-by-step reasoning to solve it, and show the final outcome. Students should be able to follow the logic from input to output.',
+  'example-case': 'This is a case study slide. Feature a real company name and context prominently, describe the specific business situation in 2-3 sentences, pose a discussion question, and reveal the key outcome or lesson learned.',
+  'exercise': 'This is a classroom activity slide. State the task objective clearly, provide step-by-step instructions, and show a time allocation. The visual should feel energetic and action-oriented.',
+  'prototype-studio': 'This is a creative studio/making slide. Show a brief creative brief at the top and a structured workspace below with labeled template areas for students to fill in. The slide should feel like the beginning of a hands-on creative session.',
+  'test-feedback': 'This is a rubric/evaluation slide. Display assessment criteria clearly and show contrasting examples of strong versus weak responses. Students should immediately understand what excellent work looks like.',
+  'summary': 'This is a key takeaways slide. Present 3-5 clear, memorable points that capture the most important things students learned. End with a sense of accomplishment and forward momentum toward applying the knowledge.',
+  'checklist': "This is a do's and don'ts practical guidance slide. Show best practices and common pitfalls side by side in two clear columns. Students should leave with actionable, memorable guidance.",
+  'transition-recap': 'This is a section transition slide. Briefly recap 2-3 points from what was just covered, then preview 2-3 things coming next. The visual should feel like a natural pause — a breath between learning sections.',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -321,23 +321,24 @@ export function esc(s: string): string {
 }
 
 // ─── Slide image prompt builder ───────────────────────────────────────────────
-export function buildSlideImagePrompt(slide: AnySlide, themeKey: string, moduleTitle: string): string {
-  const style = THEME_STYLE_DESCRIPTORS[themeKey] ?? THEME_STYLE_DESCRIPTORS['modern-minimal'];
-  const layout = SLIDE_LAYOUT_DESCRIPTORS[slide.type] ?? '';
+export function buildSlideImagePrompt(
+  slide: AnySlide,
+  themeKey: string,
+  moduleTitle: string,
+): { prompt: string; systemPrompt: string } {
+  const systemPrompt = THEME_STYLE_DESCRIPTORS[themeKey] ?? THEME_STYLE_DESCRIPTORS['modern-minimal'];
+  const intent = SLIDE_LAYOUT_DESCRIPTORS[slide.type] ?? '';
   const visual = (slide as { visualPrompt?: string }).visualPrompt ?? '';
-  // Lead with the slide-rendering context so the model doesn't generate abstract art
-  return [
-    `PRESENTATION SLIDE, 16:9 widescreen, fully rendered with all visible text and labels.`,
-    style,
-    layout,
-    `Academic BBA course topic: ${moduleTitle}.`,
+  const prompt = [
+    `Create a presentation slide for a BBA university course on "${moduleTitle}".`,
+    intent,
     visual,
-    `Render as a complete polished presentation slide. All titles, headings, body text, bullet points, labels, and diagram annotations must be legible. No placeholder text. No lorem ipsum. No blank boxes. Photorealistic digital slide, studio-quality typography.`,
-  ].join(' ');
+  ].filter(Boolean).join('\n');
+  return { prompt, systemPrompt };
 }
 
 // ─── Slide image generation (nano-banana-pro — complete slide rendering) ──────
-export async function genSlideImage(fullPrompt: string): Promise<string | null> {
+export async function genSlideImage(prompt: string, systemPrompt: string): Promise<string | null> {
   if (!process.env.FAL_KEY) return null;
   try {
     const res = await fetch('https://fal.run/fal-ai/nano-banana-pro', {
@@ -347,9 +348,10 @@ export async function genSlideImage(fullPrompt: string): Promise<string | null> 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompt: fullPrompt,
-        negative_prompt: 'abstract art, blurry text, illegible text, distorted letters, no text, watermark, cropped, low quality, sketch, rough draft',
+        prompt,
+        system_prompt: systemPrompt,
         aspect_ratio: '16:9',
+        resolution: '2K',
         num_images: 1,
       }),
       signal: AbortSignal.timeout(90000),

@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       // Pass 2: generate ALL slide images in parallel
       await Promise.all(
         slides.map((slide, i) =>
-          genSlideImage(buildSlideImagePrompt(slide, direction, module.title))
+          (({ prompt: slidePrompt, systemPrompt }) => genSlideImage(slidePrompt, systemPrompt))(buildSlideImagePrompt(slide, direction, module.title))
             .then(async imageUrl => {
               await writer.write(sseEvent({
                 event: 'slide',

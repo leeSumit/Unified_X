@@ -20,9 +20,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const imageUrl = await genSlideImage(
-    buildSlideImagePrompt(slideContent, direction, module.title),
-  );
+  const { prompt: slidePrompt, systemPrompt } = buildSlideImagePrompt(slideContent, direction, module.title);
+  const imageUrl = await genSlideImage(slidePrompt, systemPrompt);
 
   return NextResponse.json({
     imageUrl,
