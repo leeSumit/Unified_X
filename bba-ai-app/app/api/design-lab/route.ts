@@ -1,19 +1,16 @@
 import { NextRequest } from 'next/server';
 import type { ParsedModule } from '@/lib/types';
 import {
-  DIRECTIONS,
   SLIDE_DISTRIBUTIONS,
-  buildHtmlWrapper,
   buildContentPrompt,
-  genImage,
-  genDiagram,
-  renderSlide,
+  buildSlideImagePrompt,
+  genSlideImage,
   type AnySlide,
 } from '@/lib/design-lab.server';
 
-export const maxDuration = 120;
+export const maxDuration = 180;
 
-// ─── Qwen3 32B via OpenRouter (free tier) ─────────────────────────────────────
+// ─── Claude Sonnet via OpenRouter (primary) ───────────────────────────────────
 async function generateSlides(
   module: ParsedModule,
   slideSequence: string[],
@@ -33,7 +30,7 @@ async function generateSlides(
     customPrompt,
   );
 
-  // Try Qwen3 32B via OpenRouter first (free)
+  // Primary: Claude Sonnet via OpenRouter
   if (process.env.OPENROUTER_API_KEY) {
     try {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -45,11 +42,11 @@ async function generateSlides(
           'X-Title': 'BBA AI Design Lab',
         },
         body: JSON.stringify({
-          model: 'qwen/qwen3-32b:free',
+          model: 'anthropic/claude-sonnet-4-6',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 6000,
+          max_tokens: 8000,
         }),
-        signal: AbortSignal.timeout(60000),
+        signal: AbortSignal.timeout(90000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -57,15 +54,15 @@ async function generateSlides(
         const parsed = extractJson(raw);
         if (parsed?.slides?.length) return parsed.slides;
       }
-    } catch { /* fall through to Anthropic */ }
+    } catch { /* fall through to Anthropic direct */ }
   }
 
-  // Fallback: Claude Sonnet (uses ANTHROPIC_API_KEY)
+  // Fallback: Claude Sonnet direct via Anthropic API
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const msg = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 6000,
+    max_tokens: 8000,
     messages: [{ role: 'user', content: prompt }],
   });
   const raw = msg.content
@@ -113,69 +110,60 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400 });
   }
 
-  const dir = DIRECTIONS[direction] || DIRECTIONS['modern-minimal'];
-  const wb = direction === 'whiteboard';
-  const slideSequence = SLIDE_DISTRIBUTIONS[slideCount] || SLIDE_DISTRIBUTIONS[10];
-  const modCtx = `Academic subject: ${module.title}. Key topics: ${module.topics.slice(0, 3).join(', ')}.`;
-  const wrapper = buildHtmlWrapper(dir, wb, module.title);
+  const slideSequence = SLIDE_DISTRIBUTIONS[slideCount] ?? SLIDE_DISTRIBUTIONS[10];
 
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
 
-  // Run generation async; stream as each slide completes
   (async () => {
     try {
-      // Pass 1: content generation (Qwen3 or Claude fallback)
+      // Pass 1: content generation (Claude Sonnet)
       let slides: AnySlide[];
       try {
         slides = await generateSlides(module, slideSequence, customPrompt);
       } catch (err) {
-        await writer.write(sseEvent({ error: `Content generation failed: ${err instanceof Error ? err.message : String(err)}` }));
+        await writer.write(sseEvent({
+          error: `Content generation failed: ${err instanceof Error ? err.message : String(err)}`,
+        }));
         await writer.close();
         return;
       }
 
-      // Send init event with wrapper HTML so client can assemble full deck
+      // Send init event — no wrapper/wb/html in new pipeline
       await writer.write(sseEvent({
         event: 'init',
         total: slides.length,
         direction,
-        wb,
-        wrapper,
       }));
 
-      // Pass 2: render slides. No-media slides stream immediately; image/diagram slides
-      // all kick off in parallel and stream as they resolve.
-      const tasks = slides.map((slide, i) => async () => {
-        let media: string | null = null;
-
-        if ((slide.type === 'content' || slide.type === 'case-study') && 'imagePrompt' in slide) {
-          media = await genImage(
-            (slide as { imagePrompt: string }).imagePrompt,
-            dir.imageStyleAnchor,
-            modCtx,
-          );
-        } else if (slide.type === 'diagram') {
-          media = await genDiagram(
-            (slide as { description: string }).description,
-            dir.primaryColor,
-          );
-        }
-
-        const html = renderSlide(slide, media, module.title, wb);
-        await writer.write(sseEvent({
-          event: 'slide',
-          index: i,
-          type: slide.type,
-          content: slide as unknown as Record<string, unknown>,
-          html,
-          imageUrl: (slide.type === 'content' || slide.type === 'case-study') ? media : null,
-          status: 'done' as const,
-        }));
-      });
-
-      // Slides without media can run in parallel with image/diagram slides
-      await Promise.all(tasks.map(t => t()));
+      // Pass 2: generate ALL slide images in parallel
+      await Promise.all(
+        slides.map((slide, i) =>
+          genSlideImage(buildSlideImagePrompt(slide, direction, module.title))
+            .then(async imageUrl => {
+              await writer.write(sseEvent({
+                event: 'slide',
+                index: i,
+                type: slide.type,
+                content: slide as unknown as Record<string, unknown>,
+                imageUrl,
+                status: 'done' as const,
+              }));
+            })
+            .catch(async err => {
+              // Individual slide failure is non-fatal — emit null imageUrl
+              await writer.write(sseEvent({
+                event: 'slide',
+                index: i,
+                type: slide.type,
+                content: slide as unknown as Record<string, unknown>,
+                imageUrl: null,
+                status: 'done' as const,
+              }));
+              void err;
+            }),
+        ),
+      );
 
       await writer.write(sseEvent({ event: 'done', total: slides.length }));
     } catch (err) {
