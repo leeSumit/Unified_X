@@ -7,6 +7,7 @@ export type ChatStep =
   | 'selecting-artifact'
   | 'generating-notes'
   | 'generating-done'
+  | 'generate-view'
   | 'design-lab';
 
 export type ChatMessageRole = 'user' | 'assistant';

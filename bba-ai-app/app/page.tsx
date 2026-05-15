@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DesignLab from '@/components/DesignLab';
 import { makeUserMessage, makeAiMessage } from '@/lib/chat-state';
 import type { ParsedModule, ArtifactType } from '@/lib/types';
@@ -8,12 +8,11 @@ import type { ChatStep, ChatMessage, ChatMessageType } from '@/lib/chat-types';
 import ChatLanding from '@/components/chat/ChatLanding';
 import ChatInterface from '@/components/chat/ChatInterface';
 import ChatHeader from '@/components/chat/ChatHeader';
+import GenerateView from '@/components/chat/GenerateView';
 
 const CHAT_STEPS: ChatStep[] = [
   'selecting-module',
   'selecting-artifact',
-  'generating-notes',
-  'generating-done',
 ];
 
 export default function Home() {
@@ -27,6 +26,7 @@ export default function Home() {
   const [wordCount, setWordCount] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (darkMode) {
@@ -133,18 +133,18 @@ export default function Home() {
       return;
     }
 
-    setChatStep('generating-notes');
+    setChatStep('generate-view');
     setStreamContent('');
     setWordCount(0);
 
-    const streamMsg = makeAiMessage('stream');
-    setMessages((prev) => [...prev, streamMsg]);
+    abortRef.current = new AbortController();
 
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ module: selectedModule, artifactType: type }),
+        signal: abortRef.current.signal,
       });
 
       if (!res.ok || !res.body) {
@@ -162,36 +162,27 @@ export default function Home() {
         const words = full.trim().split(/\s+/).filter(Boolean).length;
         setStreamContent(full);
         setWordCount(words);
-        setMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (!last || last.id !== streamMsg.id) return prev;
-          return [
-            ...prev.slice(0, -1),
-            { ...last, streamContent: full, wordCount: words },
-          ];
-        });
       }
 
       setChatStep('generating-done');
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (!last || last.id !== streamMsg.id) return prev;
-        return [
-          ...prev.slice(0, -1),
-          {
-            ...last,
-            type: 'stream-done' as ChatMessageType,
-            streamContent: full,
-            wordCount: full.trim().split(/\s+/).filter(Boolean).length,
-          },
-        ];
-      });
     } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        setChatStep('generating-done');
+        return;
+      }
       console.error('Generate error:', err);
     }
   }
 
+  function handleStop() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setChatStep('generating-done');
+  }
+
   function handleRestart() {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setChatStep('landing');
     setMessages([]);
     setModules([]);
@@ -204,6 +195,7 @@ export default function Home() {
 
   const isChatStep = CHAT_STEPS.includes(chatStep);
   const isLandingStep = chatStep === 'landing' || chatStep === 'parsing';
+  const isGenerateStep = chatStep === 'generate-view' || chatStep === 'generating-notes' || chatStep === 'generating-done';
   const streamDone = chatStep === 'generating-done';
 
   return (
@@ -229,6 +221,21 @@ export default function Home() {
           streamContent={streamContent}
           wordCount={wordCount}
           streamDone={streamDone}
+          darkMode={darkMode}
+          onToggleDark={() => setDarkMode((d) => !d)}
+        />
+      )}
+
+      {isGenerateStep && selectedModule && artifactType && artifactType !== 'pptx' && (
+        <GenerateView
+          streamContent={streamContent}
+          wordCount={wordCount}
+          done={chatStep === 'generating-done'}
+          artifactType={artifactType}
+          module={selectedModule}
+          onStop={handleStop}
+          onRestart={handleRestart}
+          onBackToChat={() => setChatStep('selecting-artifact')}
           darkMode={darkMode}
           onToggleDark={() => setDarkMode((d) => !d)}
         />
