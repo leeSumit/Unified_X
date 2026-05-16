@@ -95,7 +95,7 @@ export default function ChatLanding({ onSubmit, isParsing = false, serverError =
             UN<span style={{ color: '#f97316', fontWeight: 900 }}>AI</span>TED
           </h1>
           <p style={{ fontSize: 18, color: '#8892a4', margin: 0, fontWeight: 400 }}>
-            A united workflow for educators
+            An united workflow for educators
           </p>
         </div>
 
