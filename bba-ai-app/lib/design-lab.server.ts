@@ -346,11 +346,11 @@ export function buildSlideImagePrompt(
   return { prompt, systemPrompt };
 }
 
-// ─── Slide image generation (nano-banana-pro — complete slide rendering) ──────
+// ─── Slide image generation (nano-banana-2 — complete slide rendering) ──────
 export async function genSlideImage(prompt: string, systemPrompt: string): Promise<string | null> {
   if (!process.env.FAL_KEY) return null;
   try {
-    const res = await fetch('https://fal.run/fal-ai/nano-banana-pro', {
+    const res = await fetch('https://fal.run/fal-ai/nano-banana-2', {
       method: 'POST',
       headers: {
         Authorization: `Key ${process.env.FAL_KEY}`,

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const res = await fetch('https://fal.run/fal-ai/nano-banana-pro', {
+    const res = await fetch('https://fal.run/fal-ai/nano-banana-2', {
       method: 'POST',
       headers: {
         Authorization: `Key ${process.env.FAL_KEY}`,
