@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import ChatInput from './ChatInput';
 import FilePill from './FilePill';
+import PreviousArtifacts from './PreviousArtifacts';
+import type { ArtifactPreview } from './PreviousArtifacts';
+import PreviousModules from './PreviousModules';
+import type { ModulePreview } from './PreviousModules';
 
 interface Props {
   onSubmit?: (text: string, file: File | null) => void;
@@ -11,9 +15,13 @@ interface Props {
   isLoggedIn?: boolean;
   isParsing?: boolean;
   serverError?: string | null;
+  previousArtifacts?: ArtifactPreview[];
+  onOpenArtifact?: (artifact: ArtifactPreview) => void;
+  previousModules?: ModulePreview[];
+  onOpenModule?: (module: ModulePreview) => void;
 }
 
-export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLoggedIn = false, isParsing = false, serverError = null }: Props) {
+export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLoggedIn = false, isParsing = false, serverError = null, previousArtifacts, onOpenArtifact, previousModules, onOpenModule }: Props) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,11 +55,13 @@ export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLogge
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: isLoggedIn ? 'flex-start' : 'center',
         background: 'var(--bg-base)',
         position: 'relative',
-        overflow: 'hidden',
-        padding: '24px 16px',
+        paddingTop: isLoggedIn ? 'max(64px, 12vh)' : '24px',
+        paddingBottom: isLoggedIn ? 64 : 24,
+        paddingLeft: 16,
+        paddingRight: 16,
       }}
     >
       {/* Logout button */}
@@ -171,6 +181,31 @@ export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLogge
             </p>
           )}
         </div>
+
+        {/* Previous artifacts + modules — visible only when logged in and not parsing */}
+        {isLoggedIn && !isParsing && (
+          <div
+            style={{
+              width: '100%',
+              borderTop: '1px solid rgba(255,255,255,0.06)',
+              paddingTop: 28,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 32,
+            }}
+          >
+            <PreviousArtifacts
+              artifacts={previousArtifacts}
+              onOpen={onOpenArtifact}
+            />
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 28 }}>
+              <PreviousModules
+                modules={previousModules}
+                onOpen={onOpenModule}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
