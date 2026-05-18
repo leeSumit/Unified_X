@@ -1,17 +1,7 @@
 import { NextRequest } from 'next/server';
 import { buildPrompt } from '@/lib/generation-prompts';
 import type { ArtifactType, ParsedModule } from '@/lib/types';
-import { rateLimit, getSessionKey } from '@/lib/rate-limit';
-
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(`generate:${getSessionKey(request)}`, 20, 60 * 60 * 1000);
-  if (!rl.allowed) {
-    return new Response(
-      `Rate limit reached. Try again in ${Math.ceil(rl.retryAfterSecs / 60)} minute${rl.retryAfterSecs > 120 ? 's' : ''}.`,
-      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSecs) } }
-    );
-  }
-
   let module: ParsedModule;
   let artifactType: ArtifactType;
 

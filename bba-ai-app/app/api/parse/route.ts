@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ParsedModule } from '@/lib/types';
-import { rateLimit, getSessionKey } from '@/lib/rate-limit';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -116,13 +115,6 @@ ${text.slice(0, 10000)}`,
 }
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(`parse:${getSessionKey(request)}`, 30, 60 * 60 * 1000);
-  if (!rl.allowed) {
-    return new Response(
-      JSON.stringify({ error: `Rate limit reached. Try again in ${Math.ceil(rl.retryAfterSecs / 60)} minute${rl.retryAfterSecs > 120 ? 's' : ''}.` }),
-      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSecs) } }
-    );
-  }
 
   try {
     if (!process.env.ANTHROPIC_API_KEY) {

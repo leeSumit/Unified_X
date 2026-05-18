@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import type { ParsedModule } from '@/lib/types';
 import type { CustomThemeColors } from '@/lib/types';
-import { rateLimit, getSessionKey } from '@/lib/rate-limit';
 import {
   SLIDE_DISTRIBUTIONS,
   buildContentPrompt,
@@ -114,13 +113,7 @@ function sseEvent(data: unknown): Uint8Array {
 // ─── Route handler ────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   let module: ParsedModule, direction: string, rawSlideCount: number | 'auto', customPrompt: string, resolvedCount: number, programName: string, universityName: string, customThemeColors: CustomThemeColors | undefined;
-  const rl = rateLimit(`design-lab:${getSessionKey(request)}`, 10, 60 * 60 * 1000);
-  if (!rl.allowed) {
-    return new Response(
-      JSON.stringify({ error: `Rate limit reached. You can generate up to 3 decks per hour. Try again in ${Math.ceil(rl.retryAfterSecs / 60)} minute${rl.retryAfterSecs > 120 ? 's' : ''}.` }),
-      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfterSecs) } }
-    );
-  }
+
 
   try {
     const body = await request.json();
