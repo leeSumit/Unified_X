@@ -250,6 +250,7 @@ export type AnySlide =
 // ─── Slide count distributions (5/10/15/20/30 — Refer.pdf pedagogy) ─────────
 export const SLIDE_DISTRIBUTIONS: Record<number, string[]> = {
   5: ['title', 'overview', 'concept', 'worked-example', 'summary'],
+  6: ['title', 'overview', 'concept', 'worked-example', 'example-case', 'summary'],
   10: [
     'title', 'overview', 'experience-trigger', 'concept', 'process-flow',
     'worked-example', 'example-case', 'exercise', 'summary', 'checklist',

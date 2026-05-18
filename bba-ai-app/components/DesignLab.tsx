@@ -17,11 +17,12 @@ interface Props {
 
 const SLIDE_COUNTS: { value: SlideCount; label: string; description: string }[] = [
   { value: 5,      label: '5',    description: 'Lightning overview' },
-  { value: 10,     label: '10',   description: 'Quick overview' },
-  { value: 15,     label: '15',   description: 'Balanced' },
-  { value: 20,     label: '20',   description: 'Deep dive' },
-  { value: 30,     label: '30',   description: 'Comprehensive' },
-  { value: 'auto', label: 'AUTO', description: 'AI picks best length' },
+  { value: 6,      label: '6',    description: 'Quick overview' },
+  // { value: 10,     label: '10',   description: 'Quick overview' },
+  // { value: 15,     label: '15',   description: 'Balanced' },
+  // { value: 20,     label: '20',   description: 'Deep dive' },
+  // { value: 30,     label: '30',   description: 'Comprehensive' },
+  // { value: 'auto', label: 'AUTO', description: 'AI picks best length' },
 ];
 
 const DIRECTIONS = [
@@ -135,7 +136,7 @@ function SlideImageFallback({ slide }: { slide: SlideState }) {
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function DesignLab({ module, artifactId, onBack, onRestart, onGeneratingChange, onComplete, onSaved }: Props) {
   const [direction, setDirection] = useState('modern-minimal');
-  const [slideCount, setSlideCount] = useState<SlideCount>('auto');
+  const [slideCount, setSlideCount] = useState<SlideCount>(5);
   const [resolvedCount, setResolvedCount] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [programName, setProgramName] = useState('BBA');
@@ -641,12 +642,14 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
                 </>
               ) : '↓ PPTX'}
             </button>
+            {/* Present button — hidden for demo
             <button
               onClick={() => { setCurrentSlide(0); setIsFullscreen(true); }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-300 bg-white transition-all"
             >
               ⤢ Present
             </button>
+            */}
           </>
         )}
       </div>
