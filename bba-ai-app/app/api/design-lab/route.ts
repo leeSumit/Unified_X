@@ -50,7 +50,7 @@ async function generateSlides(
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://bba-ai.vercel.app',
+          'HTTP-Referer': 'https://unaited.vercel.app',
           'X-Title': 'BBA AI Design Lab',
         },
         body: JSON.stringify({

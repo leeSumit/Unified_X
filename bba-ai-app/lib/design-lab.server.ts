@@ -355,7 +355,7 @@ export async function genSlideImage(prompt: string, systemPrompt: string): Promi
       headers: {
         Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://bba-ai-app.vercel.app',
+        'HTTP-Referer': 'https://unaited.vercel.app',
         'X-Title': 'UNAITED',
       },
       body: JSON.stringify({
