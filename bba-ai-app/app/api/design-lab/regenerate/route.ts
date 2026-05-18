@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ParsedModule } from '@/lib/types';
 import type { CustomThemeColors } from '@/lib/types';
-import { rateLimit, getIp } from '@/lib/rate-limit';
+import { rateLimit, getSessionKey } from '@/lib/rate-limit';
 import {
   buildSlideImagePrompt,
   genSlideImage,
@@ -11,7 +11,7 @@ import {
 export const maxDuration = 90;
 
 export async function POST(request: NextRequest) {
-  const rl = rateLimit(`regen:${getIp(request)}`, 10, 60 * 60 * 1000); // 10/hour
+  const rl = rateLimit(`regen:${getSessionKey(request)}`, 30, 60 * 60 * 1000);
   if (!rl.allowed) {
     return new Response(
       JSON.stringify({ error: `Rate limit reached. Try again in ${Math.ceil(rl.retryAfterSecs / 60)} minute${rl.retryAfterSecs > 120 ? 's' : ''}.` }),

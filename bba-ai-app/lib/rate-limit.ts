@@ -42,3 +42,9 @@ export function getIp(request: Request): string {
   if (forwarded) return forwarded.split(',')[0].trim();
   return 'unknown';
 }
+
+export function getSessionKey(request: Request): string {
+  const sessionId = request.headers.get('x-session-id');
+  if (sessionId && sessionId.length === 36) return `sid:${sessionId}`;
+  return `ip:${getIp(request)}`;
+}

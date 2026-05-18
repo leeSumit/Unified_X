@@ -9,6 +9,7 @@ import ChatLanding from '@/components/chat/ChatLanding';
 import ChatInterface from '@/components/chat/ChatInterface';
 import ChatHeader from '@/components/chat/ChatHeader';
 import GenerateView from '@/components/chat/GenerateView';
+import { getOrCreateSessionId } from '@/lib/session';
 
 const CHAT_STEPS: ChatStep[] = [
   'selecting-module',
@@ -55,7 +56,7 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch('/api/parse', { method: 'POST', body: formData });
+      const res = await fetch('/api/parse', { method: 'POST', body: formData, headers: { 'x-session-id': getOrCreateSessionId() } });
       const data = await res.json();
 
       if (!res.ok || data.error) {
@@ -142,7 +143,7 @@ export default function Home() {
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getOrCreateSessionId() },
         body: JSON.stringify({ module: selectedModule, artifactType: type }),
         signal: abortRef.current.signal,
       });

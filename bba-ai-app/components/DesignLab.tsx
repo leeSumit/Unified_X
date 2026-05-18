@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { getOrCreateSessionId } from '@/lib/session';
 import type { ParsedModule, SlideState, SlideCount } from '@/lib/types';
 import { THEME_STYLE_DESCRIPTORS, SLIDE_LAYOUT_DESCRIPTORS } from '@/lib/design-lab.server';
 
@@ -197,7 +198,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
     try {
       const res = await fetch('/api/design-lab', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getOrCreateSessionId() },
         signal: controller.signal,
         body: JSON.stringify({
           module,
@@ -353,7 +354,7 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
     try {
       const res = await fetch('/api/design-lab/regenerate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getOrCreateSessionId() },
         body: JSON.stringify({
           slideContent: { ...editContent, type: slides[editingIndex]?.type },
           direction,

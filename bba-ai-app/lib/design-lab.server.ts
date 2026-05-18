@@ -346,28 +346,30 @@ export function buildSlideImagePrompt(
   return { prompt, systemPrompt };
 }
 
-// ─── Slide image generation (nano-banana-2 — complete slide rendering) ──────
+// ─── Slide image generation (OpenRouter Gemini — complete slide rendering) ──────
 export async function genSlideImage(prompt: string, systemPrompt: string): Promise<string | null> {
-  if (!process.env.FAL_KEY) return null;
+  if (!process.env.OPENROUTER_API_KEY) return null;
   try {
-    const res = await fetch('https://fal.run/fal-ai/nano-banana-2', {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        Authorization: `Key ${process.env.FAL_KEY}`,
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://bba-ai-app.vercel.app',
+        'X-Title': 'UNAITED',
       },
       body: JSON.stringify({
-        prompt,
-        system_prompt: systemPrompt,
-        aspect_ratio: '16:9',
-        resolution: '1K',
-        num_images: 1,
+        model: 'google/gemini-3.1-flash-image-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `${prompt}\n\nGenerate as a 16:9 widescreen presentation slide image.` },
+        ],
       }),
       signal: AbortSignal.timeout(90000),
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return (data.images?.[0]?.url as string) ?? null;
+    return (data.choices?.[0]?.message?.images?.[0]?.image_url?.url as string) ?? null;
   } catch {
     return null;
   }
