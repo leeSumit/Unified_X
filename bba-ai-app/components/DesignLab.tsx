@@ -161,6 +161,11 @@ export default function DesignLab({ module, artifactId, initialSlides, initialDi
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState<Record<string, unknown>>({});
   const [isRegenerating, setIsRegenerating] = useState(false);
+  // Candidate regen image — shown below the main preview until the user keeps or discards it.
+  const [candidateImageUrl, setCandidateImageUrl] = useState<string | null>(null);
+  const [candidateForSlideIndex, setCandidateForSlideIndex] = useState<number | null>(null);
+  // Snapshot of the content the user submitted when clicking Regenerate; applied to the slide on Keep.
+  const [candidateContent, setCandidateContent] = useState<Record<string, unknown> | null>(null);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(hasInitial ? 'saved' : 'idle');
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -209,6 +214,14 @@ export default function DesignLab({ module, artifactId, initialSlides, initialDi
   useEffect(() => {
     if (status === 'streaming') setCurrentSlide(0);
   }, [status]);
+
+  // Silently discard any pending candidate when the user closes the edit panel
+  // or moves to a different slide.
+  useEffect(() => {
+    setCandidateImageUrl(null);
+    setCandidateForSlideIndex(null);
+    setCandidateContent(null);
+  }, [currentSlide, editingIndex]);
 
   // Notify parent of streaming state so it can guard the back button + fire onComplete.
   useEffect(() => {
@@ -487,21 +500,19 @@ export default function DesignLab({ module, artifactId, initialSlides, initialDi
   async function handleRegenerateSlide() {
     if (editingIndex === null) return;
     setIsRegenerating(true);
+    // Drop any prior candidate — only one in flight at a time.
+    setCandidateImageUrl(null);
+    setCandidateContent(null);
 
-    const previousPath = slides[editingIndex]?.storagePath ?? null;
-
-    setSlides(prev => {
-      const next = [...prev];
-      if (next[editingIndex]) next[editingIndex] = { ...next[editingIndex]!, status: 'regenerating' };
-      return next;
-    });
+    const submittedForIndex = editingIndex;
+    const submittedContent = { ...editContent };
 
     try {
       const res = await fetch('/api/design-lab/regenerate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-session-id': getOrCreateSessionId() },
         body: JSON.stringify({
-          slideContent: { ...editContent, type: slides[editingIndex]?.type },
+          slideContent: { ...submittedContent, type: slides[submittedForIndex]?.type },
           direction,
           module,
           programName,
@@ -509,37 +520,60 @@ export default function DesignLab({ module, artifactId, initialSlides, initialDi
           ...(direction === 'custom' ? { customThemeColors } : {}),
         }),
       });
-      const data = await res.json() as { imageUrl?: string | null; content?: Record<string, unknown>; error?: string };
-      if (data.error) throw new Error(data.error);
+      const data = await res.json() as { imageUrl?: string | null; content?: Record<string, unknown>; error?: string; detail?: string };
+      if (data.error) throw new Error(data.detail || data.error);
+      if (!data.imageUrl) throw new Error('Image generation returned no image');
 
-      // Clear storagePath so autosave re-uploads, and queue the old object for deletion.
-      if (previousPath) pathsToDeleteRef.current.push(previousPath);
+      // If the user closed the panel or moved to another slide while the
+      // request was in flight, treat this regen as silently discarded.
+      if (editingIndex !== submittedForIndex) return;
 
-      setSlides(prev => {
-        const next = [...prev];
-        next[editingIndex] = {
-          index: editingIndex,
-          type: slides[editingIndex]?.type ?? '',
-          content: data.content ?? editContent,
-          imageUrl: data.imageUrl ?? null,
-          storagePath: null,
-          status: 'done',
-        };
-        return next;
-      });
-      setEditContent(data.content ?? editContent);
-
-      if (artifactId) runAutoSave();
+      setCandidateImageUrl(data.imageUrl);
+      setCandidateForSlideIndex(submittedForIndex);
+      setCandidateContent(data.content ?? submittedContent);
     } catch (err) {
-      setSlides(prev => {
-        const next = [...prev];
-        if (next[editingIndex]) next[editingIndex] = { ...next[editingIndex]!, status: 'done' };
-        return next;
-      });
       alert(`Regeneration failed: ${(err as Error).message}`);
     } finally {
       setIsRegenerating(false);
     }
+  }
+
+  function handleDiscardCandidate() {
+    setCandidateImageUrl(null);
+    setCandidateForSlideIndex(null);
+    setCandidateContent(null);
+  }
+
+  function handleKeepCandidate() {
+    if (candidateForSlideIndex === null || !candidateImageUrl) return;
+    const idx = candidateForSlideIndex;
+    const slide = slides[idx];
+    if (!slide) return;
+
+    const newContent = candidateContent ?? slide.content;
+    const newImageUrl = candidateImageUrl;
+
+    // Queue the previous object for deletion in the next autosave pass.
+    if (slide.storagePath) pathsToDeleteRef.current.push(slide.storagePath);
+
+    setSlides(prev => {
+      const next = [...prev];
+      next[idx] = {
+        ...slide,
+        content: newContent,
+        imageUrl: newImageUrl,
+        storagePath: null,
+        status: 'done',
+      };
+      return next;
+    });
+    setEditContent(newContent);
+
+    setCandidateImageUrl(null);
+    setCandidateForSlideIndex(null);
+    setCandidateContent(null);
+
+    if (artifactId) runAutoSave();
   }
 
   const editingSlide = editingIndex !== null ? slides[editingIndex] : undefined;
@@ -999,6 +1033,44 @@ export default function DesignLab({ module, artifactId, initialSlides, initialDi
           </div>
         </div>
       </div>
+
+      {/* ── Candidate (new regen) preview — shown only while a candidate exists
+            for the currently-viewed slide. Auto-discards on slide switch / panel close. ── */}
+      {candidateImageUrl && currentDoneSlide && candidateForSlideIndex === currentDoneSlide.index && (
+        <div className="mt-4 rounded-2xl border-2 border-orange-300 shadow-lg overflow-hidden">
+          <div className="bg-orange-50 border-b border-orange-200 px-4 py-2 flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-bold text-orange-700 uppercase tracking-wider">New version</span>
+              <span className="text-xs text-orange-600 ml-2">Keep to replace the current slide, or discard.</span>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <button
+                onClick={handleDiscardCandidate}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-200 hover:border-gray-300 transition-all"
+              >
+                Discard
+              </button>
+              <button
+                onClick={handleKeepCandidate}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all"
+                style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}
+              >
+                ✓ Keep
+              </button>
+            </div>
+          </div>
+          <div style={{ position: 'relative', paddingTop: '56.25%', background: '#000' }}>
+            <div style={{ position: 'absolute', inset: 0 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={candidateImageUrl}
+                alt="New candidate slide"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Footer ── */}
       <div className="mt-4 flex items-center justify-between">
