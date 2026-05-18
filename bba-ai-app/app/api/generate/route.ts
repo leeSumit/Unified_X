@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         },
         body: JSON.stringify({
           model: 'anthropic/claude-sonnet-4-6',
-          max_tokens: 8000,
+          max_tokens: 64000,
           stream: true,
           messages: [{ role: 'user', content: prompt }],
         }),
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        max_tokens: 64000,
         stream: true,
         messages: [{ role: 'user', content: prompt }],
       }),

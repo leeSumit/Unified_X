@@ -794,7 +794,6 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
                 <p className="text-sm font-semibold text-gray-700">Designing your slides…</p>
-                <p className="text-xs text-gray-400 mt-1">Claude is writing content, images will follow</p>
               </div>
             )}
 
