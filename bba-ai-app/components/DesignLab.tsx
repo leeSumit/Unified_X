@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getOrCreateSessionId } from '@/lib/session';
+import { createClient } from '@/lib/supabase/client';
 import type { ParsedModule, SlideState, SlideCount } from '@/lib/types';
 import { THEME_STYLE_DESCRIPTORS, SLIDE_LAYOUT_DESCRIPTORS } from '@/lib/design-lab.server';
 
@@ -331,13 +332,35 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
     setIsSaving(true);
     setSaveError(null);
     try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not signed in');
+
+      const ts = Date.now();
+      const uploaded: { index: number; type: string; path: string }[] = [];
+
+      for (const slide of doneSlides) {
+        if (!slide.imageUrl) continue;
+        // Convert data URL → Blob in the browser (avoids sending base64 to server)
+        const blob = await fetch(slide.imageUrl).then(r => r.blob());
+        const idxStr = String(slide.index + 1).padStart(2, '0');
+        const safeType = slide.type.replace(/[^a-z0-9-]/gi, '-');
+        const path = `${user.id}/${artifactId}/slides/${idxStr}-${safeType}-${ts}.png`;
+
+        const { error: uploadErr } = await supabase.storage
+          .from('artifacts')
+          .upload(path, blob, { contentType: 'image/png', upsert: true });
+
+        if (!uploadErr) uploaded.push({ index: slide.index, type: slide.type, path });
+      }
+
+      if (uploaded.length === 0) throw new Error('No images uploaded to storage');
+
+      // Just record paths — no image data sent to the server
       const res = await fetch(`/api/artifacts/${artifactId}/save-images`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slides: doneSlides.map(s => ({ index: s.index, type: s.type, imageUrl: s.imageUrl })),
-          theme: direction,
-        }),
+        body: JSON.stringify({ slides: uploaded, theme: direction }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
