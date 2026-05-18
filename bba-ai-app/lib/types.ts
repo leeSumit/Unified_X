@@ -63,6 +63,7 @@ export interface SlideState {
   type: string;
   content: Record<string, unknown>;
   imageUrl: string | null;
+  storagePath?: string | null;
   status: 'pending' | 'done' | 'regenerating' | 'error';
 }
 

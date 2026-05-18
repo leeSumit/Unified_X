@@ -153,11 +153,17 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
   const [editContent, setEditContent] = useState<Record<string, unknown>>({});
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [currentSlide, setCurrentSlide] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const slidesRef = useRef<(SlideState | undefined)[]>([]);
+  const pathsToDeleteRef = useRef<string[]>([]);
+  const saveInFlightRef = useRef(false);
+  const savePendingRef = useRef(false);
+  const autoSavedForRunRef = useRef(false);
+
+  // Keep ref in sync so autosave can read the latest slides without stale closures.
+  useEffect(() => { slidesRef.current = slides; }, [slides]);
 
   const doneSlides = slides.filter((s): s is SlideState => !!s && s.status === 'done');
   const doneCount = doneSlides.length;
@@ -203,6 +209,14 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
   async function handleGenerate() {
     const controller = new AbortController();
     abortRef.current = controller;
+
+    // Queue any previously-uploaded slide images for deletion after the next save.
+    const existingPaths = slidesRef.current
+      .map(s => s?.storagePath)
+      .filter((p): p is string => !!p);
+    if (existingPaths.length > 0) pathsToDeleteRef.current.push(...existingPaths);
+    autoSavedForRunRef.current = false;
+
     setStatus('streaming');
     setSlides([]);
     setTotalSlides(0);
@@ -211,7 +225,6 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
     setEditingIndex(null);
     setCurrentSlide(0);
     setSaveState('idle');
-    setSaveError(null);
 
     try {
       const res = await fetch('/api/design-lab', {
@@ -328,54 +341,107 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
     }
   }
 
-  async function handleSave() {
-    if (!artifactId || doneSlides.length === 0 || isSaving) return;
-    setIsSaving(true);
-    setSaveError(null);
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not signed in');
+  // Auto-save: upload any slide that lacks a storagePath, write the manifest,
+  // then clean up paths queued for deletion. Re-entrant safe (coalesces).
+  const runAutoSave = useCallback(async () => {
+    if (!artifactId) return;
+    if (saveInFlightRef.current) { savePendingRef.current = true; return; }
 
-      const ts = Date.now();
-      const uploaded: { index: number; type: string; path: string }[] = [];
+    saveInFlightRef.current = true;
+    setSaveState('saving');
 
-      for (const slide of doneSlides) {
-        if (!slide.imageUrl) continue;
-        // Convert data URL → Blob in the browser (avoids sending base64 to server)
-        const blob = await fetch(slide.imageUrl).then(r => r.blob());
-        const idxStr = String(slide.index + 1).padStart(2, '0');
-        const safeType = slide.type.replace(/[^a-z0-9-]/gi, '-');
-        const path = `${user.id}/${artifactId}/slides/${idxStr}-${safeType}-${ts}.png`;
+    const supabase = createClient();
+    let attempt = 0;
+    const maxAttempts = 3;
 
-        const { error: uploadErr } = await supabase.storage
-          .from('artifacts')
-          .upload(path, blob, { contentType: 'image/png', upsert: true });
+    while (attempt < maxAttempts) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not signed in');
 
-        if (!uploadErr) uploaded.push({ index: slide.index, type: slide.type, path });
+        const ts = Date.now();
+        const done = slidesRef.current.filter(
+          (s): s is SlideState => !!s && s.status === 'done'
+        );
+        if (done.length === 0) throw new Error('No slides to save');
+
+        const manifest: { index: number; type: string; path: string }[] = [];
+        for (const slide of done) {
+          let path = slide.storagePath ?? null;
+          if (!path && slide.imageUrl) {
+            const blob = await fetch(slide.imageUrl).then(r => r.blob());
+            const mime = blob.type || 'image/png';
+            const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png';
+            const idxStr = String(slide.index + 1).padStart(2, '0');
+            const safeType = slide.type.replace(/[^a-z0-9-]/gi, '-');
+            path = `${user.id}/${artifactId}/slides/${idxStr}-${safeType}-${ts}.${ext}`;
+            const { error: uploadErr } = await supabase.storage
+              .from('artifacts')
+              .upload(path, blob, { contentType: mime, upsert: true });
+            if (uploadErr) throw uploadErr;
+
+            // Persist the path on the slide so we don't re-upload it next time.
+            setSlides(prev => {
+              const next = [...prev];
+              const cur = next[slide.index];
+              if (cur) next[slide.index] = { ...cur, storagePath: path };
+              return next;
+            });
+          }
+          if (path) manifest.push({ index: slide.index, type: slide.type, path });
+        }
+
+        if (manifest.length === 0) throw new Error('No images uploaded to storage');
+
+        const res = await fetch(`/api/artifacts/${artifactId}/save-images`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slides: manifest, theme: direction }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+        }
+
+        // Clean up any orphaned storage objects from previous generations/regens.
+        const stale = pathsToDeleteRef.current.splice(0);
+        if (stale.length > 0) {
+          await supabase.storage.from('artifacts').remove(stale).catch(() => {});
+        }
+
+        setSaveState('saved');
+        onSaved?.();
+        break;
+      } catch (err) {
+        attempt += 1;
+        if (attempt >= maxAttempts) {
+          console.error('[DesignLab] auto-save failed after retries', err);
+          setSaveState('error');
+          break;
+        }
+        // Exponential backoff: 500ms, 1500ms, 3500ms
+        const delay = 500 * Math.pow(3, attempt - 1);
+        await new Promise(r => setTimeout(r, delay));
       }
-
-      if (uploaded.length === 0) throw new Error('No images uploaded to storage');
-
-      // Just record paths — no image data sent to the server
-      const res = await fetch(`/api/artifacts/${artifactId}/save-images`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slides: uploaded, theme: direction }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
-      }
-      setSaveState('saved');
-      onSaved?.();
-    } catch (err) {
-      setSaveState('error');
-      setSaveError((err as Error).message || 'Save failed');
-    } finally {
-      setIsSaving(false);
     }
-  }
+
+    saveInFlightRef.current = false;
+
+    // If another save was requested while this one was in flight, run again.
+    if (savePendingRef.current) {
+      savePendingRef.current = false;
+      runAutoSave();
+    }
+  }, [artifactId, direction, onSaved]);
+
+  // Auto-save once per generation run as soon as streaming finishes.
+  useEffect(() => {
+    if (status !== 'done') return;
+    if (autoSavedForRunRef.current) return;
+    if (!artifactId) return;
+    autoSavedForRunRef.current = true;
+    runAutoSave();
+  }, [status, artifactId, runAutoSave]);
 
   async function handleDownloadPptx() {
     if (doneSlides.length === 0) return;
@@ -412,6 +478,8 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
     if (editingIndex === null) return;
     setIsRegenerating(true);
 
+    const previousPath = slides[editingIndex]?.storagePath ?? null;
+
     setSlides(prev => {
       const next = [...prev];
       if (next[editingIndex]) next[editingIndex] = { ...next[editingIndex]!, status: 'regenerating' };
@@ -434,6 +502,9 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
       const data = await res.json() as { imageUrl?: string | null; content?: Record<string, unknown>; error?: string };
       if (data.error) throw new Error(data.error);
 
+      // Clear storagePath so autosave re-uploads, and queue the old object for deletion.
+      if (previousPath) pathsToDeleteRef.current.push(previousPath);
+
       setSlides(prev => {
         const next = [...prev];
         next[editingIndex] = {
@@ -441,11 +512,14 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
           type: slides[editingIndex]?.type ?? '',
           content: data.content ?? editContent,
           imageUrl: data.imageUrl ?? null,
+          storagePath: null,
           status: 'done',
         };
         return next;
       });
       setEditContent(data.content ?? editContent);
+
+      if (artifactId) runAutoSave();
     } catch (err) {
       setSlides(prev => {
         const next = [...prev];
@@ -627,23 +701,23 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
         {status === 'done' && doneCount > 0 && (
           <>
             {artifactId && (
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
-                style={{ background: saveState === 'saved' ? '#16a34a' : 'linear-gradient(135deg,#5B2D8E,#E8681A)' }}
-                title={saveError ?? undefined}
+              <div
+                className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium"
+                style={{
+                  color: saveState === 'error' ? '#b91c1c' : saveState === 'saved' ? '#16a34a' : '#6b7280',
+                  background: saveState === 'error' ? '#fef2f2' : saveState === 'saved' ? '#f0fdf4' : '#f9fafb',
+                }}
               >
-                {isSaving ? (
+                {saveState === 'saving' ? (
                   <>
-                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Saving…
+                    Auto-saving…
                   </>
-                ) : saveState === 'saved' ? '✓ Saved' : saveState === 'error' ? 'Retry save' : '↑ Save'}
-              </button>
+                ) : saveState === 'saved' ? '✓ Saved' : saveState === 'error' ? '⚠ Save failed' : ''}
+              </div>
             )}
             <button
               onClick={handleDownload}

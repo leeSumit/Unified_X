@@ -138,7 +138,22 @@ values (
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'application/pdf',
     'image/png',
+    'image/jpeg',
+    'image/webp',
     'application/json'
   ]
 )
 on conflict (id) do nothing;
+
+-- Keep allowlist current on already-created buckets (image generators may
+-- return JPEG / WEBP in addition to PNG).
+update storage.buckets
+set allowed_mime_types = array[
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'application/json'
+]
+where id = 'artifacts';
