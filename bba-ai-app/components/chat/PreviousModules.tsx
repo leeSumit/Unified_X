@@ -14,6 +14,7 @@ export interface ModulePreview {
 interface Props {
   modules?: ModulePreview[];
   onOpen?: (module: ModulePreview) => void;
+  onShowAll?: () => void;
 }
 
 function relativeDate(date: Date): string {
@@ -27,7 +28,7 @@ function relativeDate(date: Date): string {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-export default function PreviousModules({ modules, onOpen }: Props) {
+export default function PreviousModules({ modules, onOpen, onShowAll }: Props) {
   const items = modules ?? [];
 
   return (
@@ -66,22 +67,25 @@ export default function PreviousModules({ modules, onOpen }: Props) {
             {items.length}
           </span>
         </div>
-        <button
-          style={{
-            fontSize: 12,
-            color: '#f97316',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            padding: 0,
-            opacity: 0.8,
-          }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.8')}
-        >
-          View all →
-        </button>
+        {onShowAll && (
+          <button
+            onClick={onShowAll}
+            style={{
+              fontSize: 12,
+              color: '#f97316',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              padding: 0,
+              opacity: 0.8,
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.8')}
+          >
+            View all →
+          </button>
+        )}
       </div>
 
       {/* Module list */}
@@ -106,7 +110,7 @@ export default function PreviousModules({ modules, onOpen }: Props) {
   );
 }
 
-function ModuleRow({
+export function ModuleRow({
   module: mod,
   onOpen,
 }: {

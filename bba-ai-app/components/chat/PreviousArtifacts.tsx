@@ -14,6 +14,7 @@ export interface ArtifactPreview {
 interface Props {
   artifacts?: ArtifactPreview[];
   onOpen?: (artifact: ArtifactPreview) => void;
+  onShowAll?: () => void;
   loadingId?: string | null;
 }
 
@@ -49,7 +50,7 @@ function relativeDate(date: Date): string {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-export default function PreviousArtifacts({ artifacts, onOpen, loadingId }: Props) {
+export default function PreviousArtifacts({ artifacts, onOpen, onShowAll, loadingId }: Props) {
   const items = artifacts ?? [];
   const anyLoading = !!loadingId;
 
@@ -81,6 +82,25 @@ export default function PreviousArtifacts({ artifacts, onOpen, loadingId }: Prop
             {items.length}
           </span>
         </div>
+        {onShowAll && (
+          <button
+            onClick={onShowAll}
+            style={{
+              fontSize: 12,
+              color: '#f97316',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              padding: 0,
+              opacity: 0.8,
+            }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.8')}
+          >
+            View all →
+          </button>
+        )}
       </div>
 
       {/* Artifact grid */}
@@ -121,7 +141,9 @@ export default function PreviousArtifacts({ artifacts, onOpen, loadingId }: Prop
   );
 }
 
-function ArtifactCard({
+export { TYPE_META as ARTIFACT_TYPE_META };
+
+export function ArtifactCard({
   artifact,
   meta,
   onOpen,

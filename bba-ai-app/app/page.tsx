@@ -11,6 +11,8 @@ import ChatLanding from '@/components/chat/ChatLanding';
 import ChatInterface from '@/components/chat/ChatInterface';
 import ChatHeader from '@/components/chat/ChatHeader';
 import GenerateView from '@/components/chat/GenerateView';
+import ArtifactsAllModal from '@/components/chat/ArtifactsAllModal';
+import ModulesAllModal from '@/components/chat/ModulesAllModal';
 import { getOrCreateSessionId } from '@/lib/session';
 import LoginModal from '@/components/auth/LoginModal';
 import type { ModulePreview } from '@/components/chat/PreviousModules';
@@ -93,6 +95,8 @@ export default function Home() {
   const [reopenedDirection, setReopenedDirection] = useState<string | null>(null);
   const [isReopened, setIsReopened] = useState(false);
   const [loadingArtifactId, setLoadingArtifactId] = useState<string | null>(null);
+  const [showAllArtifacts, setShowAllArtifacts] = useState(false);
+  const [showAllModules, setShowAllModules] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [designLabBusy, setDesignLabBusy] = useState(false);
   const pendingNavRef = useRef<(() => void) | null>(null);
@@ -290,8 +294,21 @@ export default function Home() {
   }
 
   async function handleOpenPreviousModule(preview: ModulePreview) {
-    const row = previousModuleRows.find((r) => r.id === preview.id);
-    if (!row) return;
+    let row = previousModuleRows.find((r) => r.id === preview.id);
+    // The modal can return modules outside the cached top-20 — fetch by id when needed.
+    if (!row) {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('modules')
+        .select('id, created_at, semester, module, title, hours, topics, tools, indian_case_study, global_case_study, learning_outcomes, source_filename')
+        .eq('id', preview.id)
+        .single();
+      if (error || !data) {
+        console.error('[open-module] fetch failed', error);
+        return;
+      }
+      row = data as ModuleRow;
+    }
     const mod = rowToParsedModule(row);
 
     setModules([mod]);
@@ -661,6 +678,8 @@ export default function Home() {
           previousArtifacts={previousArtifacts}
           onOpenArtifact={handleOpenArtifact}
           loadingArtifactId={loadingArtifactId}
+          onShowAllArtifacts={() => setShowAllArtifacts(true)}
+          onShowAllModules={() => setShowAllModules(true)}
         />
       )}
 
@@ -732,6 +751,27 @@ export default function Home() {
           onConfirm={handleConfirmGoBack}
         />
       )}
+
+      <ArtifactsAllModal
+        open={showAllArtifacts}
+        onClose={() => setShowAllArtifacts(false)}
+        userId={user?.id ?? null}
+        onOpenArtifact={(a) => {
+          setShowAllArtifacts(false);
+          handleOpenArtifact(a);
+        }}
+        loadingArtifactId={loadingArtifactId}
+      />
+
+      <ModulesAllModal
+        open={showAllModules}
+        onClose={() => setShowAllModules(false)}
+        userId={user?.id ?? null}
+        onOpenModule={(m) => {
+          setShowAllModules(false);
+          handleOpenPreviousModule(m);
+        }}
+      />
     </div>
   );
 }
