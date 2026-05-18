@@ -360,7 +360,7 @@ export async function genSlideImage(prompt: string, systemPrompt: string): Promi
         prompt,
         system_prompt: systemPrompt,
         aspect_ratio: '16:9',
-        resolution: '2K',
+        resolution: '1K',
         num_images: 1,
       }),
       signal: AbortSignal.timeout(90000),

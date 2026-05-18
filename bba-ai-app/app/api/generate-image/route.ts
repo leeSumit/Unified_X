@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
         prompt,
         negative_prompt: 'abstract art, blurry text, illegible text, distorted letters, no text, watermark, cropped, low quality, sketch, rough draft',
         aspect_ratio: '16:9',
+        resolution: '1K',
         num_images: 1,
       }),
       signal: AbortSignal.timeout(60000),
