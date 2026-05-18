@@ -17,6 +17,7 @@ interface Props {
 }
 
 const SLIDE_COUNTS: { value: SlideCount; label: string; description: string }[] = [
+  { value: 1,      label: '1',    description: 'Title only (test)' },
   { value: 5,      label: '5',    description: 'Lightning overview' },
   { value: 6,      label: '6',    description: 'Quick overview' },
   // { value: 10,     label: '10',   description: 'Quick overview' },

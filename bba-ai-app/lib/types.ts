@@ -56,7 +56,7 @@ export interface ChatMessage {
   wordCount?: number;
 }
 
-export type SlideCount = 5 | 6 | 10 | 15 | 20 | 30 | 'auto';
+export type SlideCount = 1 | 5 | 6 | 10 | 15 | 20 | 30 | 'auto';
 
 export interface SlideState {
   index: number;

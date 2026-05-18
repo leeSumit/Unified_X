@@ -13,7 +13,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://zzmrxtkkiiytmfrpwcxl.supabase.co https://*.supabase.co wss://*.supabase.co",
+      "connect-src 'self' data: https://zzmrxtkkiiytmfrpwcxl.supabase.co https://*.supabase.co wss://*.supabase.co",
       "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",
