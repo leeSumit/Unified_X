@@ -78,22 +78,6 @@ export default function PreviousArtifacts({ artifacts, onOpen }: Props) {
             {items.length}
           </span>
         </div>
-        <button
-          style={{
-            fontSize: 12,
-            color: '#f97316',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            padding: 0,
-            opacity: 0.8,
-          }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.8')}
-        >
-          View all →
-        </button>
       </div>
 
       {/* Artifact grid */}
@@ -141,9 +125,11 @@ function ArtifactCard({
   meta: (typeof TYPE_META)[ArtifactType];
   onOpen?: (a: ArtifactPreview) => void;
 }) {
+  const clickable = !!onOpen;
   return (
     <button
       onClick={() => onOpen?.(artifact)}
+      disabled={!clickable}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -152,18 +138,20 @@ function ArtifactCard({
         border: '1px solid rgba(255,255,255,0.06)',
         borderRadius: 12,
         padding: '14px 16px',
-        cursor: 'pointer',
+        cursor: clickable ? 'pointer' : 'default',
         textAlign: 'left',
         transition: 'background 150ms ease, border-color 150ms ease',
         fontFamily: 'inherit',
         width: '100%',
       }}
       onMouseEnter={(e) => {
+        if (!clickable) return;
         const el = e.currentTarget as HTMLElement;
         el.style.background = 'rgba(255,255,255,0.055)';
         el.style.borderColor = 'rgba(255,255,255,0.11)';
       }}
       onMouseLeave={(e) => {
+        if (!clickable) return;
         const el = e.currentTarget as HTMLElement;
         el.style.background = 'rgba(255,255,255,0.03)';
         el.style.borderColor = 'rgba(255,255,255,0.06)';

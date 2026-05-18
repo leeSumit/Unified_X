@@ -9,9 +9,6 @@ interface Props {
 }
 
 export default function LoginModal({ open, onClose }: Props) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -60,44 +57,6 @@ export default function LoginModal({ open, onClose }: Props) {
         @keyframes slideUpModal {
           from { opacity: 0; transform: translateY(18px) scale(0.98); }
         }
-        .login-input {
-          width: 100%;
-          background: #16161e;
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 12px;
-          padding: 13px 16px;
-          font-size: 15px;
-          font-family: inherit;
-          color: #e2e8f0;
-          outline: none;
-          transition: border-color 150ms ease, box-shadow 150ms ease;
-          box-sizing: border-box;
-        }
-        .login-input::placeholder { color: #4a5568; }
-        .login-input:focus {
-          border-color: rgba(249,115,22,0.5);
-          box-shadow: 0 0 0 3px rgba(249,115,22,0.1);
-        }
-        .login-btn-primary {
-          width: 100%;
-          background: #f97316;
-          color: #ffffff;
-          border: none;
-          border-radius: 12px;
-          padding: 14px 24px;
-          font-size: 15px;
-          font-weight: 600;
-          font-family: inherit;
-          cursor: pointer;
-          transition: background 150ms ease, transform 100ms ease, box-shadow 150ms ease;
-          letter-spacing: 0.01em;
-        }
-        .login-btn-primary:hover {
-          background: #ea6c0f;
-          box-shadow: 0 4px 16px rgba(249,115,22,0.28);
-          transform: translateY(-1px);
-        }
-        .login-btn-primary:active { transform: translateY(0); }
         .login-btn-google {
           width: 100%;
           background: #1a1a28;
@@ -121,22 +80,6 @@ export default function LoginModal({ open, onClose }: Props) {
           transform: translateY(-1px);
         }
         .login-btn-google:active { transform: translateY(0); }
-        .pass-toggle {
-          position: absolute;
-          right: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          background: none;
-          border: none;
-          cursor: pointer;
-          color: #8892a4;
-          padding: 4px;
-          display: flex;
-          align-items: center;
-          font-size: 13px;
-          transition: color 150ms ease;
-        }
-        .pass-toggle:hover { color: #e2e8f0; }
       `}</style>
 
       <div
@@ -206,7 +149,7 @@ export default function LoginModal({ open, onClose }: Props) {
         {/* Google button */}
         <button
           className="login-btn-google"
-          style={{ marginBottom: 20, opacity: loading ? 0.7 : 1 }}
+          style={{ opacity: loading ? 0.7 : 1 }}
           onClick={handleGoogleSignIn}
           disabled={loading}
         >
@@ -214,101 +157,6 @@ export default function LoginModal({ open, onClose }: Props) {
           {loading ? 'Redirecting…' : 'Continue with Google'}
         </button>
 
-        {/* Divider */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 20,
-          }}
-        >
-          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
-          <span style={{ fontSize: 12, color: '#4a5568', fontWeight: 500, letterSpacing: '0.05em' }}>
-            OR
-          </span>
-          <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.07)' }} />
-        </div>
-
-        {/* Form */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 13,
-                fontWeight: 500,
-                color: '#8892a4',
-                marginBottom: 6,
-              }}
-            >
-              Email
-            </label>
-            <input
-              className="login-input"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-          </div>
-
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 6,
-              }}
-            >
-              <label style={{ fontSize: 13, fontWeight: 500, color: '#8892a4' }}>
-                Password
-              </label>
-              <button
-                onClick={() => {}}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: 12,
-                  color: '#f97316',
-                  cursor: 'pointer',
-                  padding: 0,
-                  fontFamily: 'inherit',
-                  fontWeight: 500,
-                  transition: 'opacity 150ms ease',
-                }}
-              >
-                Forgot password?
-              </button>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <input
-                className="login-input"
-                type={showPass ? 'text' : 'password'}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ paddingRight: 48 }}
-                autoComplete="current-password"
-              />
-              <button
-                className="pass-toggle"
-                onClick={() => setShowPass((v) => !v)}
-                tabIndex={-1}
-              >
-                {showPass ? <EyeOff /> : <Eye />}
-              </button>
-            </div>
-          </div>
-
-          <button className="login-btn-primary" style={{ marginTop: 4 }} onClick={() => {}}>
-            Sign in
-          </button>
-        </div>
-
-        {/* Footer */}
         <p
           style={{
             margin: '20px 0 0',
@@ -317,23 +165,7 @@ export default function LoginModal({ open, onClose }: Props) {
             color: '#4a5568',
           }}
         >
-          Don&apos;t have an account?{' '}
-          <button
-            onClick={() => {}}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#f97316',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              fontSize: 13,
-              fontWeight: 500,
-              padding: 0,
-              transition: 'opacity 150ms ease',
-            }}
-          >
-            Sign up
-          </button>
+          A Google account is required to use UNAITED.
         </p>
       </div>
     </div>
@@ -363,21 +195,3 @@ function GoogleLogo() {
   );
 }
 
-function Eye() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function EyeOff() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-      <line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  );
-}
