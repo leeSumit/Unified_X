@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 import DesignLab from '@/components/DesignLab';
 import { makeUserMessage, makeAiMessage } from '@/lib/chat-state';
 import type { ParsedModule, ArtifactType } from '@/lib/types';
@@ -10,6 +12,7 @@ import ChatInterface from '@/components/chat/ChatInterface';
 import ChatHeader from '@/components/chat/ChatHeader';
 import GenerateView from '@/components/chat/GenerateView';
 import { getOrCreateSessionId } from '@/lib/session';
+import LoginModal from '@/components/auth/LoginModal';
 
 const CHAT_STEPS: ChatStep[] = [
   'selecting-module',
@@ -27,7 +30,21 @@ export default function Home() {
   const [wordCount, setWordCount] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const isLoggedIn = !!user;
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) setShowLogin(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -38,6 +55,10 @@ export default function Home() {
   }, [darkMode]);
 
   async function handleSyllabusSubmit(text: string, file: File | null) {
+    if (!isLoggedIn) {
+      setShowLogin(true);
+      return;
+    }
     const userMsg: ChatMessage = file
       ? makeUserMessage('file-attachment', { fileName: file.name })
       : makeUserMessage('text', {
@@ -205,6 +226,11 @@ export default function Home() {
     setChatStep('generating-done');
   }
 
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut({ scope: 'local' });
+  }
+
   function handleRestart() {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -225,9 +251,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
+      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
       {isLandingStep && (
         <ChatLanding
           onSubmit={handleSyllabusSubmit}
+          onRequireAuth={() => { if (!isLoggedIn) setShowLogin(true); }}
+          onLogout={handleLogout}
+          isLoggedIn={isLoggedIn}
           isParsing={chatStep === 'parsing'}
           serverError={parseError}
         />

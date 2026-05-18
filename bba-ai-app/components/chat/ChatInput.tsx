@@ -7,6 +7,7 @@ interface Props {
   onChange: (val: string) => void;
   onSubmit: () => void;
   onFileSelect?: (file: File) => void;
+  onFocus?: () => void;
   disabled?: boolean;
   placeholder?: string;
   multiline?: boolean;
@@ -18,6 +19,7 @@ export default function ChatInput({
   onChange,
   onSubmit,
   onFileSelect,
+  onFocus,
   disabled = false,
   placeholder = 'Message…',
   multiline = false,
@@ -108,6 +110,7 @@ export default function ChatInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
+        onFocus={onFocus}
         disabled={disabled}
         placeholder={placeholder}
         rows={1}

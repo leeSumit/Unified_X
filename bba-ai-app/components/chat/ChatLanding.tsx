@@ -6,11 +6,14 @@ import FilePill from './FilePill';
 
 interface Props {
   onSubmit?: (text: string, file: File | null) => void;
+  onRequireAuth?: () => void;
+  onLogout?: () => void;
+  isLoggedIn?: boolean;
   isParsing?: boolean;
   serverError?: string | null;
 }
 
-export default function ChatLanding({ onSubmit, isParsing = false, serverError = null }: Props) {
+export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLoggedIn = false, isParsing = false, serverError = null }: Props) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +54,39 @@ export default function ChatLanding({ onSubmit, isParsing = false, serverError =
         padding: '24px 16px',
       }}
     >
+      {/* Logout button */}
+      {isLoggedIn && (
+        <button
+          onClick={onLogout}
+          style={{
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 10,
+            padding: '7px 14px',
+            fontSize: 13,
+            fontWeight: 500,
+            color: '#8892a4',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            transition: 'background 150ms ease, color 150ms ease',
+            zIndex: 2,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#e2e8f0';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#8892a4';
+          }}
+        >
+          Sign out
+        </button>
+      )}
+
       {/* Radial gradient overlay */}
       <div
         style={{
@@ -108,6 +144,7 @@ export default function ChatLanding({ onSubmit, isParsing = false, serverError =
             onChange={handleTextChange}
             onSubmit={handleSubmit}
             onFileSelect={handleFileSelect}
+            onFocus={onRequireAuth}
             disabled={isParsing}
             placeholder="Paste your syllabus or upload a PDF..."
             multiline
