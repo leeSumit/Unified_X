@@ -7,8 +7,12 @@ import { THEME_STYLE_DESCRIPTORS, SLIDE_LAYOUT_DESCRIPTORS } from '@/lib/design-
 
 interface Props {
   module: ParsedModule;
+  artifactId?: string | null;
   onBack: () => void;
   onRestart: () => void;
+  onGeneratingChange?: (isGenerating: boolean) => void;
+  onComplete?: () => void;
+  onSaved?: () => void;
 }
 
 const SLIDE_COUNTS: { value: SlideCount; label: string; description: string }[] = [
@@ -129,7 +133,7 @@ function SlideImageFallback({ slide }: { slide: SlideState }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function DesignLab({ module, onBack, onRestart }: Props) {
+export default function DesignLab({ module, artifactId, onBack, onRestart, onGeneratingChange, onComplete, onSaved }: Props) {
   const [direction, setDirection] = useState('modern-minimal');
   const [slideCount, setSlideCount] = useState<SlideCount>('auto');
   const [resolvedCount, setResolvedCount] = useState<number | null>(null);
@@ -146,6 +150,9 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
   const [editContent, setEditContent] = useState<Record<string, unknown>>({});
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -184,6 +191,12 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
     if (status === 'streaming') setCurrentSlide(0);
   }, [status]);
 
+  // Notify parent of streaming state so it can guard the back button + fire onComplete.
+  useEffect(() => {
+    onGeneratingChange?.(status === 'streaming');
+    if (status === 'done') onComplete?.();
+  }, [status, onGeneratingChange, onComplete]);
+
   async function handleGenerate() {
     const controller = new AbortController();
     abortRef.current = controller;
@@ -194,6 +207,8 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
     setErrorMsg('');
     setEditingIndex(null);
     setCurrentSlide(0);
+    setSaveState('idle');
+    setSaveError(null);
 
     try {
       const res = await fetch('/api/design-lab', {
@@ -307,6 +322,33 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
         URL.revokeObjectURL(url);
         await new Promise(r => setTimeout(r, 200));
       } catch { /* skip */ }
+    }
+  }
+
+  async function handleSave() {
+    if (!artifactId || doneSlides.length === 0 || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/artifacts/${artifactId}/save-images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slides: doneSlides.map(s => ({ index: s.index, type: s.type, imageUrl: s.imageUrl })),
+          theme: direction,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+      }
+      setSaveState('saved');
+      onSaved?.();
+    } catch (err) {
+      setSaveState('error');
+      setSaveError((err as Error).message || 'Save failed');
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -559,6 +601,25 @@ export default function DesignLab({ module, onBack, onRestart }: Props) {
         )}
         {status === 'done' && doneCount > 0 && (
           <>
+            {artifactId && (
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60"
+                style={{ background: saveState === 'saved' ? '#16a34a' : 'linear-gradient(135deg,#5B2D8E,#E8681A)' }}
+                title={saveError ?? undefined}
+              >
+                {isSaving ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Saving…
+                  </>
+                ) : saveState === 'saved' ? '✓ Saved' : saveState === 'error' ? 'Retry save' : '↑ Save'}
+              </button>
+            )}
             <button
               onClick={handleDownload}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-300 bg-white transition-all"

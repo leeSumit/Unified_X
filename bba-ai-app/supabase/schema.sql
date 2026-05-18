@@ -2,91 +2,131 @@
 -- BBA AI App — Supabase Schema
 -- ============================================================
 -- Run this in: Supabase Dashboard → SQL Editor → New query
+-- Then run policies.sql to enable RLS + per-row policies.
+--
+-- Tables managed by Supabase Auth (do not create yourself):
+--   - auth.users
 -- ============================================================
 
 
--- ── 1. GENERATIONS ────────────────────────────────────────────
--- One row per content generation run (notes / workbook / pptx outline)
+-- ── 1. PROFILES ───────────────────────────────────────────────
+-- Extends auth.users with app-specific fields. Auto-populated for
+-- every new signup via the handle_new_user() trigger below.
 
-create table if not exists public.generations (
-  id            uuid primary key default gen_random_uuid(),
-  created_at    timestamptz not null default now(),
-
-  -- who generated it (null = anonymous / unauthenticated user)
-  user_id       uuid references auth.users(id) on delete set null,
-
-  -- what was generated
-  artifact_type text not null check (artifact_type in ('notes', 'pptx', 'workbook')),
-  module_title  text not null,
-  semester      int,
-  module_number int,
-
-  -- optional: full markdown/text output (large; skip if you only want metadata)
-  content       text,
-
-  -- word count snapshotted at generation time
-  word_count    int
+create table if not exists public.profiles (
+  id          uuid primary key references auth.users(id) on delete cascade,
+  full_name   text,
+  avatar_url  text,
+  created_at  timestamptz default now()
 );
 
--- Index for fetching a user's history fast
-create index if not exists generations_user_id_idx on public.generations(user_id, created_at desc);
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, full_name, avatar_url)
+  values (
+    new.id,
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'avatar_url'
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
 
--- ── 2. DESIGN LAB SESSIONS ────────────────────────────────────
--- One row per Design Lab deck (a set of slides with images)
+-- ── 2. MODULES ────────────────────────────────────────────────
+-- One row per ParsedModule. The fundamental unit of work.
+-- Column names mirror lib/types.ts ParsedModule (snake_case).
 
-create table if not exists public.design_sessions (
-  id            uuid primary key default gen_random_uuid(),
-  created_at    timestamptz not null default now(),
-
-  user_id       uuid references auth.users(id) on delete set null,
-
-  -- link back to the generation that seeded this deck (optional)
-  generation_id uuid references public.generations(id) on delete set null,
-
-  module_title  text not null,
-  template_id   text,          -- 'campus-ai' | 'clean' | 'whiteboard'
-  slide_count   int,
-
-  -- full slide JSON array (content + imageUrl per slide)
-  slides_json   jsonb
+create table if not exists public.modules (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  semester          int  not null,
+  module            int  not null,   -- matches ParsedModule.module
+  title             text not null,
+  hours             int  not null,
+  topics            text[] not null,
+  tools             text[] not null,
+  indian_case_study text,
+  global_case_study text,
+  learning_outcomes text[],
+  source_filename   text,            -- e.g. "BBA_Syllabus_2025.pdf"
+  created_at        timestamptz default now()
 );
 
-create index if not exists design_sessions_user_id_idx on public.design_sessions(user_id, created_at desc);
 
-
--- ── 3. ARTIFACTS (storage references) ─────────────────────────
--- Tracks every file uploaded to the 'artifacts' Storage bucket
+-- ── 3. ARTIFACTS ──────────────────────────────────────────────
+-- One row per generated artifact (notes, workbook, pptx).
+-- notes/workbook: markdown lives in `content`.
+-- pptx:           file path in Supabase Storage lives in `storage_path`.
 
 create table if not exists public.artifacts (
-  id              uuid primary key default gen_random_uuid(),
-  created_at      timestamptz not null default now(),
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references auth.users(id) on delete cascade,
+  module_id     uuid references public.modules(id) on delete set null,
+  artifact_type text not null check (artifact_type in ('notes', 'workbook', 'pptx')),
+  title         text not null,
 
-  user_id         uuid references auth.users(id) on delete set null,
+  -- notes / workbook: store markdown directly in the row (typically 15–30 KB)
+  content       text,
 
-  -- which generation / session produced this file (optional, one or the other)
-  generation_id   uuid references public.generations(id) on delete cascade,
-  design_session_id uuid references public.design_sessions(id) on delete cascade,
+  -- pptx: path inside the Supabase Storage 'artifacts' bucket
+  storage_path  text,
 
-  -- Storage bucket path — e.g. "exports/2024/user-id/notes-sem1-mod2.pdf"
-  storage_path    text not null unique,
+  -- pptx metadata
+  slide_count   int,
+  theme         text,   -- e.g. 'modern-minimal', 'campus-ai'
 
-  file_type       text not null check (file_type in ('pptx', 'pdf', 'png', 'json')),
-  file_name       text not null,
-  file_size_bytes bigint,
+  -- pptx assets: array of { index, type, path, ts } objects pointing at
+  -- per-slide PNGs uploaded to the 'artifacts' bucket. Re-renders the deck
+  -- by listing this array and signing each path.
+  assets        jsonb,
 
-  -- public URL (populated after upload if bucket is public)
-  public_url      text
+  -- notes / workbook metadata
+  word_count    int,
+
+  -- generation lifecycle state
+  status        text not null default 'incomplete'
+                  check (status in ('completed', 'incomplete')),
+
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
 );
 
-create index if not exists artifacts_generation_id_idx on public.artifacts(generation_id);
-create index if not exists artifacts_design_session_id_idx on public.artifacts(design_session_id);
+-- For DBs that pre-date the assets column, add it idempotently.
+alter table public.artifacts add column if not exists assets jsonb;
+
+-- Auto-update updated_at on every write
+create or replace function public.set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists artifacts_updated_at on public.artifacts;
+create trigger artifacts_updated_at
+  before update on public.artifacts
+  for each row execute procedure public.set_updated_at();
+
+
+-- ── 4. INDEXES ────────────────────────────────────────────────
+-- Speed up user-scoped queries.
+
+create index if not exists modules_user_id_idx   on public.modules(user_id, created_at desc);
 create index if not exists artifacts_user_id_idx on public.artifacts(user_id, created_at desc);
+create index if not exists artifacts_module_id_idx on public.artifacts(module_id);
 
 
--- ── 4. STORAGE BUCKET ─────────────────────────────────────────
--- Run this ONCE to create the bucket (or do it in the Dashboard UI)
--- The bucket is private by default; share via signed URLs.
+-- ── 5. STORAGE BUCKET (for PPTX exports) ──────────────────────
+-- Private bucket; share via signed URLs.
+-- Files are stored under artifacts/<user_id>/<filename>.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -102,33 +142,3 @@ values (
   ]
 )
 on conflict (id) do nothing;
-
-
--- ── 5. ROW LEVEL SECURITY ─────────────────────────────────────
--- Enable RLS on every table (safe default — nothing is readable unless a policy allows it)
-
-alter table public.generations       enable row level security;
-alter table public.design_sessions   enable row level security;
-alter table public.artifacts         enable row level security;
-
--- Users can only see / insert their own rows
-create policy "own generations"
-  on public.generations for all
-  using  (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
-create policy "own design sessions"
-  on public.design_sessions for all
-  using  (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
-create policy "own artifacts"
-  on public.artifacts for all
-  using  (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
--- Storage: users can only access their own folder (artifacts/<user_id>/*)
-create policy "own storage objects"
-  on storage.objects for all
-  using  (bucket_id = 'artifacts' and (storage.foldername(name))[1] = auth.uid()::text)
-  with check (bucket_id = 'artifacts' and (storage.foldername(name))[1] = auth.uid()::text);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient } from '@/lib/supabase/server';
 import type { ParsedModule } from '@/lib/types';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
 
     const contentType = request.headers.get('content-type') ?? '';
     let text: string;
+    let sourceFilename: string | null = null;
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
@@ -134,6 +136,7 @@ export async function POST(request: NextRequest) {
 
       if (file && file.size > 0) {
         text = await extractTextFromFile(file);
+        sourceFilename = file.name;
       } else if (pastedText && pastedText.trim().length > 0) {
         text = pastedText;
       } else {
@@ -152,6 +155,40 @@ export async function POST(request: NextRequest) {
     }
 
     const modules = await parseModulesFromText(text);
+
+    // Persist modules for the logged-in user. Anonymous callers parse but don't persist.
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user && modules.length > 0) {
+      const rows = modules.map((m) => ({
+        user_id: user.id,
+        semester: m.semester,
+        module: m.module,
+        title: m.title,
+        hours: m.hours,
+        topics: m.topics ?? [],
+        tools: m.tools ?? [],
+        indian_case_study: m.indianCaseStudy ?? null,
+        global_case_study: m.globalCaseStudy ?? null,
+        learning_outcomes: m.learningOutcomes ?? [],
+        source_filename: sourceFilename,
+      }));
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('modules')
+        .insert(rows)
+        .select('id');
+      if (insertError) {
+        console.error('[parse] failed to save modules', insertError);
+      } else if (inserted) {
+        // Inserted rows come back in the same order as the input array.
+        inserted.forEach((row, i) => {
+          if (modules[i]) modules[i].id = row.id;
+        });
+      }
+    }
+
     return NextResponse.json({ modules });
   } catch (error) {
     console.error('[parse]', error);

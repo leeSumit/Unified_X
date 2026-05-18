@@ -13,6 +13,59 @@ import ChatHeader from '@/components/chat/ChatHeader';
 import GenerateView from '@/components/chat/GenerateView';
 import { getOrCreateSessionId } from '@/lib/session';
 import LoginModal from '@/components/auth/LoginModal';
+import type { ModulePreview } from '@/components/chat/PreviousModules';
+import type { ArtifactPreview, ArtifactType as ArtifactPreviewType } from '@/components/chat/PreviousArtifacts';
+
+interface ArtifactRow {
+  id: string;
+  artifact_type: ArtifactPreviewType;
+  title: string;
+  created_at: string;
+  modules: { title: string } | null;
+}
+
+interface ModuleRow {
+  id: string;
+  created_at: string;
+  semester: number;
+  module: number;
+  title: string;
+  hours: number;
+  topics: string[] | null;
+  tools: string[] | null;
+  indian_case_study: string | null;
+  global_case_study: string | null;
+  learning_outcomes: string[] | null;
+  source_filename: string | null;
+}
+
+function rowToParsedModule(row: ModuleRow): ParsedModule {
+  return {
+    id: row.id,
+    semester: row.semester,
+    module: row.module,
+    title: row.title,
+    hours: row.hours,
+    topics: row.topics ?? [],
+    tools: row.tools ?? [],
+    indianCaseStudy: row.indian_case_study ?? undefined,
+    globalCaseStudy: row.global_case_study ?? undefined,
+    learningOutcomes: row.learning_outcomes ?? undefined,
+  };
+}
+
+function rowToPreview(row: ModuleRow): ModulePreview {
+  return {
+    id: row.id,
+    semester: row.semester,
+    module: row.module,
+    title: row.title,
+    hours: row.hours,
+    topicCount: row.topics?.length ?? 0,
+    sourceFilename: row.source_filename ?? undefined,
+    createdAt: new Date(row.created_at),
+  };
+}
 
 const CHAT_STEPS: ChatStep[] = [
   'selecting-module',
@@ -32,6 +85,12 @@ export default function Home() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [previousModuleRows, setPreviousModuleRows] = useState<ModuleRow[]>([]);
+  const [previousArtifacts, setPreviousArtifacts] = useState<ArtifactPreview[]>([]);
+  const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [designLabBusy, setDesignLabBusy] = useState(false);
+  const pendingNavRef = useRef<(() => void) | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const isLoggedIn = !!user;
@@ -45,6 +104,102 @@ export default function Home() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Fetch the logged-in user's previously parsed modules so they appear on the landing page.
+  // Re-fetches whenever the user changes or we return to the landing step (e.g. after a fresh parse).
+  useEffect(() => {
+    if (!user) {
+      setPreviousModuleRows([]);
+      return;
+    }
+    if (chatStep !== 'landing') return;
+
+    const supabase = createClient();
+    let cancelled = false;
+    supabase
+      .from('modules')
+      .select(
+        'id, created_at, semester, module, title, hours, topics, tools, indian_case_study, global_case_study, learning_outcomes, source_filename'
+      )
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('Failed to load previous modules:', error);
+          return;
+        }
+        setPreviousModuleRows((data ?? []) as ModuleRow[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, chatStep]);
+
+  const previousModulePreviews = previousModuleRows.map(rowToPreview);
+
+  // Fetch completed artifacts for the landing page. Same gating as modules.
+  useEffect(() => {
+    if (!user) {
+      setPreviousArtifacts([]);
+      return;
+    }
+    if (chatStep !== 'landing') return;
+
+    const supabase = createClient();
+    let cancelled = false;
+    supabase
+      .from('artifacts')
+      .select('id, artifact_type, title, created_at, modules(title)')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error('Failed to load previous artifacts:', error);
+          return;
+        }
+        const rows = (data ?? []) as unknown as ArtifactRow[];
+        setPreviousArtifacts(
+          rows.map((r) => ({
+            id: r.id,
+            type: r.artifact_type,
+            title: r.title,
+            moduleTitle: r.modules?.title ?? '—',
+            createdAt: new Date(r.created_at),
+          }))
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, chatStep]);
+
+  async function handleOpenPreviousModule(preview: ModulePreview) {
+    const row = previousModuleRows.find((r) => r.id === preview.id);
+    if (!row) return;
+    const mod = rowToParsedModule(row);
+
+    setModules([mod]);
+    setSelectedModule(mod);
+    setChatStep('selecting-artifact');
+
+    const userMsg = makeUserMessage('text', { content: mod.title });
+    setMessages([userMsg]);
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 400));
+
+    const topicsPreview = mod.topics.slice(0, 3).join(', ');
+    const hasMore = mod.topics.length > 3;
+    const aiText = makeAiMessage('text', {
+      content: `**${mod.title}**\nSemester ${mod.semester} · ${mod.hours} hours\nTopics: ${topicsPreview}${hasMore ? '…' : ''}\n\nWhat would you like to create?`,
+    });
+    const aiArtifacts = makeAiMessage('artifact-options');
+    setMessages((prev) => [...prev, aiText, aiArtifacts]);
+  }
 
   useEffect(() => {
     if (darkMode) {
@@ -137,6 +292,39 @@ export default function Home() {
     setMessages((prev) => [...prev, aiText, aiArtifacts]);
   }
 
+  async function createArtifactRow(type: ArtifactType): Promise<string | null> {
+    if (!selectedModule) return null;
+    try {
+      const res = await fetch('/api/artifacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          module_id: selectedModule.id ?? null,
+          artifact_type: type,
+          title: `${selectedModule.title} — ${type}`,
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.id ?? null;
+    } catch (err) {
+      console.error('Failed to create artifact row:', err);
+      return null;
+    }
+  }
+
+  async function markArtifactCompleted(id: string, extras: { content?: string; word_count?: number } = {}) {
+    try {
+      await fetch('/api/artifacts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'completed', ...extras }),
+      });
+    } catch (err) {
+      console.error('Failed to mark artifact completed:', err);
+    }
+  }
+
   async function handleArtifactSelect(type: ArtifactType) {
     const labelMap: Record<ArtifactType, string> = {
       notes: 'Notes',
@@ -146,6 +334,11 @@ export default function Home() {
     const userMsg = makeUserMessage('text', { content: labelMap[type] });
     setMessages((prev) => [...prev, userMsg]);
     setArtifactType(type);
+
+    // Create an incomplete artifact row up-front. Status flips to 'completed'
+    // when generation finishes (notes/workbook stream end, or DesignLab onComplete).
+    const newArtifactId = await createArtifactRow(type);
+    setCurrentArtifactId(newArtifactId);
 
     if (type === 'pptx') {
       await new Promise<void>((resolve) => setTimeout(resolve, 400));
@@ -185,6 +378,7 @@ export default function Home() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let full = '';
+      let words = 0;
 
       while (true) {
         // Respect stop button — abort signal fired
@@ -192,12 +386,20 @@ export default function Home() {
         const { done, value } = await reader.read();
         if (done) break;
         full += decoder.decode(value, { stream: true });
-        const words = full.trim().split(/\s+/).filter(Boolean).length;
+        words = full.trim().split(/\s+/).filter(Boolean).length;
         setStreamContent(full);
         setWordCount(words);
       }
 
-      setChatStep('generating-done');
+      const aborted = abortRef.current?.signal.aborted;
+      // Don't override the chat step on abort — the Stop button or the
+      // back-confirm flow has already set the desired destination.
+      if (!aborted) {
+        setChatStep('generating-done');
+        if (newArtifactId && full.trim().length > 0) {
+          await markArtifactCompleted(newArtifactId, { content: full, word_count: words });
+        }
+      }
     } catch (err) {
       const name = (err as Error).name;
       if (name === 'AbortError' || name === 'TypeError') {
@@ -242,12 +444,45 @@ export default function Home() {
     setStreamContent('');
     setWordCount(0);
     setParseError(null);
+    setCurrentArtifactId(null);
   }
 
   const isChatStep = CHAT_STEPS.includes(chatStep);
   const isLandingStep = chatStep === 'landing' || chatStep === 'parsing';
   const isGenerateStep = chatStep === 'generate-view' || chatStep === 'generating-notes' || chatStep === 'generating-done';
   const streamDone = chatStep === 'generating-done';
+
+  // True while a generation is mid-flight. We use it to gate the back/new
+  // buttons behind a confirmation dialog so the user can't accidentally
+  // abandon an in-progress run (the row stays 'incomplete' if they do).
+  const isGenerating =
+    chatStep === 'generate-view' ||
+    (chatStep === 'design-lab' && designLabBusy);
+
+  function guardNavigation(navigate: () => void) {
+    if (isGenerating) {
+      pendingNavRef.current = () => {
+        abortRef.current?.abort();
+        abortRef.current = null;
+        navigate();
+      };
+      setConfirmOpen(true);
+    } else {
+      navigate();
+    }
+  }
+
+  function handleConfirmCancel() {
+    pendingNavRef.current = null;
+    setConfirmOpen(false);
+  }
+
+  function handleConfirmGoBack() {
+    const fn = pendingNavRef.current;
+    pendingNavRef.current = null;
+    setConfirmOpen(false);
+    fn?.();
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
@@ -260,6 +495,9 @@ export default function Home() {
           isLoggedIn={isLoggedIn}
           isParsing={chatStep === 'parsing'}
           serverError={parseError}
+          previousModules={previousModulePreviews}
+          onOpenModule={handleOpenPreviousModule}
+          previousArtifacts={previousArtifacts}
         />
       )}
 
@@ -289,8 +527,8 @@ export default function Home() {
           artifactType={artifactType}
           module={selectedModule}
           onStop={handleStop}
-          onRestart={handleRestart}
-          onBackToChat={() => setChatStep('selecting-artifact')}
+          onRestart={() => guardNavigation(handleRestart)}
+          onBackToChat={() => guardNavigation(() => setChatStep('selecting-artifact'))}
           darkMode={darkMode}
           onToggleDark={() => setDarkMode((d) => !d)}
         />
@@ -302,23 +540,115 @@ export default function Home() {
           style={{ background: 'var(--bg-base)' }}
         >
           <ChatHeader
-            onNew={handleRestart}
+            onNew={() => guardNavigation(handleRestart)}
             darkMode={darkMode}
             onToggleDark={() => setDarkMode((d) => !d)}
             showBackToChat
-            onBackToChat={() => {
-              setChatStep('selecting-artifact');
-            }}
+            onBackToChat={() => guardNavigation(() => setChatStep('selecting-artifact'))}
           />
           <div className="flex-1 overflow-auto pt-4 pb-8">
             <DesignLab
               module={selectedModule}
-              onBack={() => setChatStep('selecting-artifact')}
-              onRestart={handleRestart}
+              artifactId={currentArtifactId}
+              onBack={() => guardNavigation(() => setChatStep('selecting-artifact'))}
+              onRestart={() => guardNavigation(handleRestart)}
+              onGeneratingChange={setDesignLabBusy}
             />
           </div>
         </div>
       )}
+
+      {confirmOpen && (
+        <ConfirmBackModal
+          onCancel={handleConfirmCancel}
+          onConfirm={handleConfirmGoBack}
+        />
+      )}
+    </div>
+  );
+}
+
+function ConfirmBackModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: 16,
+      }}
+      onClick={onCancel}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#15161e',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 14,
+          padding: '22px 22px 18px',
+          width: '100%',
+          maxWidth: 380,
+          boxShadow: '0 18px 50px rgba(0,0,0,0.45)',
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            fontSize: 17,
+            fontWeight: 600,
+            color: '#e2e8f0',
+          }}
+        >
+          Leave this generation?
+        </h2>
+        <p
+          style={{
+            margin: '10px 0 22px',
+            fontSize: 13,
+            color: '#8892a4',
+            lineHeight: 1.5,
+          }}
+        >
+          The current changes won&apos;t be saved and you&apos;ll go back to the chat. You can start again any time.
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 8,
+              padding: '7px 14px',
+              fontSize: 13,
+              color: '#cbd5e1',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Keep generating
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              background: '#ef4444',
+              border: '1px solid #ef4444',
+              borderRadius: 8,
+              padding: '7px 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#fff',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Yes, go back
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

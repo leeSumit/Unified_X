@@ -1,4 +1,5 @@
 export interface ParsedModule {
+  id?: string;            // DB row id once persisted; undefined for in-memory only
   semester: number;
   module: number;
   title: string;
