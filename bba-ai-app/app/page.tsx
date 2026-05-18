@@ -5,7 +5,7 @@ import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import DesignLab from '@/components/DesignLab';
 import { makeUserMessage, makeAiMessage } from '@/lib/chat-state';
-import type { ParsedModule, ArtifactType } from '@/lib/types';
+import type { ParsedModule, ArtifactType, SlideState } from '@/lib/types';
 import type { ChatStep, ChatMessage, ChatMessageType } from '@/lib/chat-types';
 import ChatLanding from '@/components/chat/ChatLanding';
 import ChatInterface from '@/components/chat/ChatInterface';
@@ -21,6 +21,7 @@ interface ArtifactRow {
   artifact_type: ArtifactPreviewType;
   title: string;
   created_at: string;
+  assets: { index: number; type: string; path: string }[] | null;
   modules: { title: string } | null;
 }
 
@@ -88,6 +89,10 @@ export default function Home() {
   const [previousModuleRows, setPreviousModuleRows] = useState<ModuleRow[]>([]);
   const [previousArtifacts, setPreviousArtifacts] = useState<ArtifactPreview[]>([]);
   const [currentArtifactId, setCurrentArtifactId] = useState<string | null>(null);
+  const [reopenedSlides, setReopenedSlides] = useState<SlideState[] | null>(null);
+  const [reopenedDirection, setReopenedDirection] = useState<string | null>(null);
+  const [isReopened, setIsReopened] = useState(false);
+  const [loadingArtifactId, setLoadingArtifactId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [designLabBusy, setDesignLabBusy] = useState(false);
   const pendingNavRef = useRef<(() => void) | null>(null);
@@ -149,34 +154,140 @@ export default function Home() {
 
     const supabase = createClient();
     let cancelled = false;
-    supabase
-      .from('artifacts')
-      .select('id, artifact_type, title, created_at, modules(title)')
-      .eq('user_id', user.id)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error('Failed to load previous artifacts:', error);
-          return;
+    (async () => {
+      const { data, error } = await supabase
+        .from('artifacts')
+        .select('id, artifact_type, title, created_at, assets, modules(title)')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (cancelled) return;
+      if (error) {
+        console.error('Failed to load previous artifacts:', error);
+        return;
+      }
+      const rows = (data ?? []) as unknown as ArtifactRow[];
+
+      // For PPTs, batch-sign the first slide's storage path for use as a card thumbnail.
+      const firstPaths: string[] = [];
+      const pathByRow = new Map<string, string>();
+      for (const r of rows) {
+        if (r.artifact_type !== 'pptx' || !Array.isArray(r.assets) || r.assets.length === 0) continue;
+        const sorted = [...r.assets].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+        const path = sorted[0]?.path;
+        if (path) {
+          firstPaths.push(path);
+          pathByRow.set(r.id, path);
         }
-        const rows = (data ?? []) as unknown as ArtifactRow[];
-        setPreviousArtifacts(
-          rows.map((r) => ({
+      }
+
+      const urlByPath = new Map<string, string>();
+      if (firstPaths.length > 0) {
+        const { data: signed, error: signErr } = await supabase
+          .storage
+          .from('artifacts')
+          .createSignedUrls(firstPaths, 60 * 60 * 6);
+        if (signErr) {
+          console.error('Failed to sign artifact thumbnails:', signErr);
+        }
+        for (const s of signed ?? []) {
+          if (s.path && s.signedUrl) urlByPath.set(s.path, s.signedUrl);
+        }
+      }
+
+      if (cancelled) return;
+      setPreviousArtifacts(
+        rows.map((r) => {
+          const path = pathByRow.get(r.id);
+          return {
             id: r.id,
             type: r.artifact_type,
             title: r.title,
             moduleTitle: r.modules?.title ?? '—',
             createdAt: new Date(r.created_at),
-          }))
-        );
-      });
+            thumbnailUrl: path ? urlByPath.get(path) ?? null : null,
+          };
+        })
+      );
+    })();
     return () => {
       cancelled = true;
     };
   }, [user, chatStep]);
+
+  async function handleOpenArtifact(preview: ArtifactPreview) {
+    if (loadingArtifactId) return; // ignore double-clicks while a load is in flight
+    setLoadingArtifactId(preview.id);
+    try {
+      const res = await fetch(`/api/artifacts/${preview.id}/load`);
+      if (!res.ok) {
+        console.error('[open-artifact] load failed', await res.text());
+        return;
+      }
+      const data = await res.json() as {
+        artifact: { id: string; artifact_type: ArtifactType; title: string; content: string | null; word_count: number | null; theme: string | null };
+        module: {
+          id: string; semester: number; module: number; title: string; hours: number;
+          topics: string[] | null; tools: string[] | null;
+          indian_case_study: string | null; global_case_study: string | null;
+          learning_outcomes: string[] | null;
+        } | null;
+        assets: { index: number; type: string; path: string; content?: Record<string, unknown>; imageUrl: string | null }[];
+      };
+
+      // Build a ParsedModule from the linked row, or synthesize a minimal one
+      // if the module has been deleted (artifacts.module_id is set null on delete).
+      const mod: ParsedModule = data.module
+        ? {
+            id: data.module.id,
+            semester: data.module.semester,
+            module: data.module.module,
+            title: data.module.title,
+            hours: data.module.hours,
+            topics: data.module.topics ?? [],
+            tools: data.module.tools ?? [],
+            indianCaseStudy: data.module.indian_case_study ?? undefined,
+            globalCaseStudy: data.module.global_case_study ?? undefined,
+            learningOutcomes: data.module.learning_outcomes ?? undefined,
+          }
+        : { semester: 0, module: 0, title: data.artifact.title, hours: 0, topics: [], tools: [] };
+
+      setSelectedModule(mod);
+      setModules([mod]);
+      setArtifactType(data.artifact.artifact_type);
+      setCurrentArtifactId(data.artifact.id);
+      setIsReopened(true);
+
+      if (data.artifact.artifact_type === 'pptx') {
+        const slides: SlideState[] = data.assets.map(a => ({
+          index: a.index,
+          type: a.type,
+          content: (a.content ?? {}) as Record<string, unknown>,
+          imageUrl: a.imageUrl,
+          storagePath: a.path,
+          status: 'done',
+        }));
+        setReopenedSlides(slides);
+        setReopenedDirection(data.artifact.theme ?? null);
+        setTransitioning(true);
+        setChatStep('design-lab');
+        setTimeout(() => setTransitioning(false), 350);
+      } else {
+        // notes / workbook — open the read-only completed view with stored content.
+        setReopenedSlides(null);
+        setReopenedDirection(null);
+        setStreamContent(data.artifact.content ?? '');
+        setWordCount(data.artifact.word_count ?? 0);
+        setChatStep('generating-done');
+      }
+    } catch (err) {
+      console.error('[open-artifact] error', err);
+    } finally {
+      setLoadingArtifactId(null);
+    }
+  }
 
   async function handleOpenPreviousModule(preview: ModulePreview) {
     const row = previousModuleRows.find((r) => r.id === preview.id);
@@ -335,6 +446,43 @@ export default function Home() {
     setMessages((prev) => [...prev, userMsg]);
     setArtifactType(type);
 
+    // Duplicate guard: if a completed artifact of this type already exists for
+    // this module, surface a notice instead of silently creating a second one.
+    if (selectedModule?.id && user) {
+      const supabase = createClient();
+      const { data: existing } = await supabase
+        .from('artifacts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('module_id', selectedModule.id)
+        .eq('artifact_type', type)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing?.id) {
+        await new Promise<void>((resolve) => setTimeout(resolve, 400));
+        const notice = makeAiMessage('duplicate-artifact', {
+          artifactType: type,
+          existingArtifactId: existing.id,
+        });
+        setMessages((prev) => [...prev, notice]);
+        return;
+      }
+    }
+
+    await proceedWithArtifact(type);
+  }
+
+  async function proceedWithArtifact(type: ArtifactType) {
+    setArtifactType(type);
+
+    // Starting a fresh generation — drop any rehydrated state from a previous reopen.
+    setReopenedSlides(null);
+    setReopenedDirection(null);
+    setIsReopened(false);
+
     // Create an incomplete artifact row up-front. Status flips to 'completed'
     // when generation finishes (notes/workbook stream end, or DesignLab onComplete).
     const newArtifactId = await createArtifactRow(type);
@@ -445,6 +593,9 @@ export default function Home() {
     setWordCount(0);
     setParseError(null);
     setCurrentArtifactId(null);
+    setReopenedSlides(null);
+    setReopenedDirection(null);
+    setIsReopened(false);
   }
 
   const isChatStep = CHAT_STEPS.includes(chatStep);
@@ -484,6 +635,16 @@ export default function Home() {
     fn?.();
   }
 
+  // Reopened artifacts have no chat history to return to, so the back action
+  // sends the user to the landing page instead of an empty chat shell.
+  const goBackToChat = () => {
+    if (isReopened) {
+      handleRestart();
+    } else {
+      setChatStep('selecting-artifact');
+    }
+  };
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--bg-base)' }}>
       <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
@@ -498,6 +659,8 @@ export default function Home() {
           previousModules={previousModulePreviews}
           onOpenModule={handleOpenPreviousModule}
           previousArtifacts={previousArtifacts}
+          onOpenArtifact={handleOpenArtifact}
+          loadingArtifactId={loadingArtifactId}
         />
       )}
 
@@ -510,6 +673,9 @@ export default function Home() {
           artifactType={artifactType}
           onModuleSelect={handleModuleSelect}
           onArtifactSelect={handleArtifactSelect}
+          onOpenExistingArtifact={(id) => handleOpenArtifact({ id, type: artifactType ?? 'pptx', title: '', moduleTitle: '', createdAt: new Date() })}
+          onCreateAnotherArtifact={(type) => proceedWithArtifact(type)}
+          openingArtifactId={loadingArtifactId}
           onRestart={handleRestart}
           streamContent={streamContent}
           wordCount={wordCount}
@@ -528,7 +694,7 @@ export default function Home() {
           module={selectedModule}
           onStop={handleStop}
           onRestart={() => guardNavigation(handleRestart)}
-          onBackToChat={() => guardNavigation(() => setChatStep('selecting-artifact'))}
+          onBackToChat={() => guardNavigation(goBackToChat)}
           darkMode={darkMode}
           onToggleDark={() => setDarkMode((d) => !d)}
         />
@@ -544,13 +710,15 @@ export default function Home() {
             darkMode={darkMode}
             onToggleDark={() => setDarkMode((d) => !d)}
             showBackToChat
-            onBackToChat={() => guardNavigation(() => setChatStep('selecting-artifact'))}
+            onBackToChat={() => guardNavigation(goBackToChat)}
           />
           <div className="flex-1 overflow-auto pt-4 pb-8">
             <DesignLab
               module={selectedModule}
               artifactId={currentArtifactId}
-              onBack={() => guardNavigation(() => setChatStep('selecting-artifact'))}
+              initialSlides={reopenedSlides ?? undefined}
+              initialDirection={reopenedDirection ?? undefined}
+              onBack={() => guardNavigation(goBackToChat)}
               onRestart={() => guardNavigation(handleRestart)}
               onGeneratingChange={setDesignLabBusy}
             />

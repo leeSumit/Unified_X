@@ -9,6 +9,7 @@ import MessageBubble from './MessageBubble';
 import TypingIndicator from './TypingIndicator';
 import ModuleCards from './ModuleCards';
 import ArtifactCards from './ArtifactCards';
+import DuplicateArtifactNotice from './DuplicateArtifactNotice';
 import GeneratingMessage from './GeneratingMessage';
 import StreamingBubble from './StreamingBubble';
 
@@ -20,6 +21,9 @@ interface Props {
   artifactType: ArtifactType | null;
   onModuleSelect: (mod: ParsedModule) => void;
   onArtifactSelect: (type: ArtifactType) => void;
+  onOpenExistingArtifact?: (artifactId: string) => void;
+  onCreateAnotherArtifact?: (type: ArtifactType) => void;
+  openingArtifactId?: string | null;
   onNew?: () => void;
   onRestart: () => void;
   darkMode: boolean;
@@ -37,6 +41,9 @@ export default function ChatInterface({
   artifactType,
   onModuleSelect,
   onArtifactSelect,
+  onOpenExistingArtifact,
+  onCreateAnotherArtifact,
+  openingArtifactId,
   onNew,
   onRestart,
 
@@ -72,6 +79,18 @@ export default function ChatInterface({
         return (
           <MessageBubble key={msg.id} message={msg}>
             <ArtifactCards onSelect={onArtifactSelect} />
+          </MessageBubble>
+        );
+
+      case 'duplicate-artifact':
+        return (
+          <MessageBubble key={msg.id} message={msg}>
+            <DuplicateArtifactNotice
+              artifactType={msg.artifactType as ArtifactType}
+              isOpening={!!msg.existingArtifactId && openingArtifactId === msg.existingArtifactId}
+              onOpenExisting={() => msg.existingArtifactId && onOpenExistingArtifact?.(msg.existingArtifactId)}
+              onCreateAnother={() => msg.artifactType && onCreateAnotherArtifact?.(msg.artifactType)}
+            />
           </MessageBubble>
         );
 

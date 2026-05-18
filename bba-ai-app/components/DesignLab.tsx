@@ -9,6 +9,8 @@ import { THEME_STYLE_DESCRIPTORS, SLIDE_LAYOUT_DESCRIPTORS } from '@/lib/design-
 interface Props {
   module: ParsedModule;
   artifactId?: string | null;
+  initialSlides?: SlideState[];
+  initialDirection?: string;
   onBack: () => void;
   onRestart: () => void;
   onGeneratingChange?: (isGenerating: boolean) => void;
@@ -136,31 +138,39 @@ function SlideImageFallback({ slide }: { slide: SlideState }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function DesignLab({ module, artifactId, onBack, onRestart, onGeneratingChange, onComplete, onSaved }: Props) {
-  const [direction, setDirection] = useState('modern-minimal');
+export default function DesignLab({ module, artifactId, initialSlides, initialDirection, onBack, onRestart, onGeneratingChange, onComplete, onSaved }: Props) {
+  const hasInitial = !!initialSlides && initialSlides.length > 0;
+  const [direction, setDirection] = useState(initialDirection ?? 'modern-minimal');
   const [slideCount, setSlideCount] = useState<SlideCount>(5);
   const [resolvedCount, setResolvedCount] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [programName, setProgramName] = useState('BBA');
   const [universityName, setUniversityName] = useState('');
   const [customThemeColors, setCustomThemeColors] = useState({ bg: '#ffffff', primary: '#3b6cff', accent: '#7a5cff' });
-  const [status, setStatus] = useState<Status>('idle');
-  const [slides, setSlides] = useState<(SlideState | undefined)[]>([]);
-  const [totalSlides, setTotalSlides] = useState(0);
+  const [status, setStatus] = useState<Status>(hasInitial ? 'done' : 'idle');
+  const [slides, setSlides] = useState<(SlideState | undefined)[]>(() => {
+    if (!hasInitial) return [];
+    const max = Math.max(...initialSlides!.map(s => s.index)) + 1;
+    const arr: (SlideState | undefined)[] = new Array(max).fill(undefined);
+    for (const s of initialSlides!) arr[s.index] = s;
+    return arr;
+  });
+  const [totalSlides, setTotalSlides] = useState(hasInitial ? initialSlides!.length : 0);
   const [errorMsg, setErrorMsg] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContent, setEditContent] = useState<Record<string, unknown>>({});
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDownloadingPptx, setIsDownloadingPptx] = useState(false);
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>(hasInitial ? 'saved' : 'idle');
   const [currentSlide, setCurrentSlide] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const slidesRef = useRef<(SlideState | undefined)[]>([]);
   const pathsToDeleteRef = useRef<string[]>([]);
   const saveInFlightRef = useRef(false);
   const savePendingRef = useRef(false);
-  const autoSavedForRunRef = useRef(false);
+  // Already saved if we're rehydrating from a stored artifact — no need to autosave on mount.
+  const autoSavedForRunRef = useRef(hasInitial);
 
   // Keep ref in sync so autosave can read the latest slides without stale closures.
   useEffect(() => { slidesRef.current = slides; }, [slides]);
@@ -365,7 +375,7 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
         );
         if (done.length === 0) throw new Error('No slides to save');
 
-        const manifest: { index: number; type: string; path: string }[] = [];
+        const manifest: { index: number; type: string; path: string; content: Record<string, unknown> }[] = [];
         for (const slide of done) {
           let path = slide.storagePath ?? null;
           if (!path && slide.imageUrl) {
@@ -388,7 +398,7 @@ export default function DesignLab({ module, artifactId, onBack, onRestart, onGen
               return next;
             });
           }
-          if (path) manifest.push({ index: slide.index, type: slide.type, path });
+          if (path) manifest.push({ index: slide.index, type: slide.type, path, content: slide.content });
         }
 
         if (manifest.length === 0) throw new Error('No images uploaded to storage');

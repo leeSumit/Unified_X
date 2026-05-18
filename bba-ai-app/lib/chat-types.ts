@@ -18,6 +18,7 @@ export type ChatMessageType =
   | 'typing'
   | 'module-list'
   | 'artifact-options'
+  | 'duplicate-artifact'
   | 'generating'
   | 'stream'
   | 'stream-done';
@@ -30,6 +31,7 @@ export interface ChatMessage {
   fileName?: string;
   modules?: ParsedModule[];
   artifactType?: ArtifactType;
+  existingArtifactId?: string;
   streamContent?: string;
   wordCount?: number;
 }

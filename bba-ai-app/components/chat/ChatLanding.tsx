@@ -17,11 +17,12 @@ interface Props {
   serverError?: string | null;
   previousArtifacts?: ArtifactPreview[];
   onOpenArtifact?: (artifact: ArtifactPreview) => void;
+  loadingArtifactId?: string | null;
   previousModules?: ModulePreview[];
   onOpenModule?: (module: ModulePreview) => void;
 }
 
-export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLoggedIn = false, isParsing = false, serverError = null, previousArtifacts, onOpenArtifact, previousModules, onOpenModule }: Props) {
+export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLoggedIn = false, isParsing = false, serverError = null, previousArtifacts, onOpenArtifact, loadingArtifactId, previousModules, onOpenModule }: Props) {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +198,7 @@ export default function ChatLanding({ onSubmit, onRequireAuth, onLogout, isLogge
             <PreviousArtifacts
               artifacts={previousArtifacts}
               onOpen={onOpenArtifact}
+              loadingId={loadingArtifactId}
             />
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 28 }}>
               <PreviousModules

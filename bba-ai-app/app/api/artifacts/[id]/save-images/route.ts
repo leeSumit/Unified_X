@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// Slides are now uploaded client-side to Supabase Storage; this route only records paths.
+// Slides are uploaded client-side to Supabase Storage; this route records paths
+// plus the slide's structured content so the artifact can be re-opened and
+// individual slides can be regenerated later.
 interface SlidePayload {
   index: number;
   type: string;
   path: string;
+  content?: Record<string, unknown>;
 }
 
 // POST /api/artifacts/[id]/save-images
@@ -53,8 +56,13 @@ export async function POST(
   }
 
   // Images were already uploaded to Supabase Storage by the browser.
-  // This route only records the paths and marks the artifact complete.
-  const assets = slides.map(s => ({ index: s.index, type: s.type, path: s.path }));
+  // This route only records the paths (and per-slide content for re-open) and marks the artifact complete.
+  const assets = slides.map(s => ({
+    index: s.index,
+    type: s.type,
+    path: s.path,
+    ...(s.content ? { content: s.content } : {}),
+  }));
 
   const update: Record<string, unknown> = {
     assets,

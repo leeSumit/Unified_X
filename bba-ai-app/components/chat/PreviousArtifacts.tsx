@@ -8,11 +8,13 @@ export interface ArtifactPreview {
   title: string;
   moduleTitle: string;
   createdAt: Date;
+  thumbnailUrl?: string | null;
 }
 
 interface Props {
   artifacts?: ArtifactPreview[];
   onOpen?: (artifact: ArtifactPreview) => void;
+  loadingId?: string | null;
 }
 
 const TYPE_META: Record<ArtifactType, { label: string; color: string; bg: string; icon: string }> = {
@@ -47,8 +49,9 @@ function relativeDate(date: Date): string {
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-export default function PreviousArtifacts({ artifacts, onOpen }: Props) {
+export default function PreviousArtifacts({ artifacts, onOpen, loadingId }: Props) {
   const items = artifacts ?? [];
+  const anyLoading = !!loadingId;
 
   return (
     <div style={{ width: '100%' }}>
@@ -107,6 +110,8 @@ export default function PreviousArtifacts({ artifacts, onOpen }: Props) {
                 artifact={artifact}
                 meta={meta}
                 onOpen={onOpen}
+                isLoading={loadingId === artifact.id}
+                isDisabled={anyLoading && loadingId !== artifact.id}
               />
             );
           })}
@@ -120,12 +125,16 @@ function ArtifactCard({
   artifact,
   meta,
   onOpen,
+  isLoading = false,
+  isDisabled = false,
 }: {
   artifact: ArtifactPreview;
   meta: (typeof TYPE_META)[ArtifactType];
   onOpen?: (a: ArtifactPreview) => void;
+  isLoading?: boolean;
+  isDisabled?: boolean;
 }) {
-  const clickable = !!onOpen;
+  const clickable = !!onOpen && !isDisabled && !isLoading;
   return (
     <button
       onClick={() => onOpen?.(artifact)}
@@ -134,15 +143,20 @@ function ArtifactCard({
         display: 'flex',
         flexDirection: 'column',
         gap: 10,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
+        background: isLoading ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
+        border: isLoading
+          ? '1px solid rgba(232,104,26,0.5)'
+          : '1px solid rgba(255,255,255,0.06)',
         borderRadius: 12,
-        padding: '14px 16px',
-        cursor: clickable ? 'pointer' : 'default',
+        padding: artifact.thumbnailUrl ? '0 0 14px' : '14px 16px',
+        cursor: isLoading ? 'wait' : clickable ? 'pointer' : 'default',
+        opacity: isDisabled ? 0.5 : 1,
         textAlign: 'left',
-        transition: 'background 150ms ease, border-color 150ms ease',
+        transition: 'background 150ms ease, border-color 150ms ease, opacity 150ms ease',
         fontFamily: 'inherit',
         width: '100%',
+        position: 'relative',
+        overflow: 'hidden',
       }}
       onMouseEnter={(e) => {
         if (!clickable) return;
@@ -157,25 +171,75 @@ function ArtifactCard({
         el.style.borderColor = 'rgba(255,255,255,0.06)';
       }}
     >
-      {/* Type badge */}
-      <span
+      {/* Slide thumbnail (PPT only — first slide from storage) */}
+      {artifact.thumbnailUrl && (
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            paddingTop: '56.25%',
+            background: '#0d0d14',
+            overflow: 'hidden',
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={artifact.thumbnailUrl}
+            alt=""
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        </div>
+      )}
+
+      <div
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 5,
-          fontSize: 11,
-          fontWeight: 600,
-          color: meta.color,
-          background: meta.bg,
-          borderRadius: 9999,
-          padding: '3px 9px',
-          width: 'fit-content',
-          letterSpacing: '0.03em',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          padding: artifact.thumbnailUrl ? '12px 16px 0' : 0,
         }}
       >
-        <span style={{ fontSize: 12 }}>{meta.icon}</span>
-        {meta.label}
-      </span>
+      {/* Type badge + loading spinner */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            fontSize: 11,
+            fontWeight: 600,
+            color: meta.color,
+            background: meta.bg,
+            borderRadius: 9999,
+            padding: '3px 9px',
+            width: 'fit-content',
+            letterSpacing: '0.03em',
+          }}
+        >
+          <span style={{ fontSize: 12 }}>{meta.icon}</span>
+          {meta.label}
+        </span>
+        {isLoading && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#E8681A', fontWeight: 600 }}>
+            <svg
+              className="animate-spin"
+              style={{ width: 12, height: 12 }}
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+              <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" opacity="0.85" />
+            </svg>
+            Loading
+          </span>
+        )}
+      </div>
 
       {/* Title */}
       <p
@@ -218,6 +282,7 @@ function ArtifactCard({
         <span style={{ fontSize: 11, color: '#8892a4', flexShrink: 0 }}>
           {relativeDate(artifact.createdAt)}
         </span>
+      </div>
       </div>
     </button>
   );

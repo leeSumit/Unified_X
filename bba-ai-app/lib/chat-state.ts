@@ -24,6 +24,7 @@ interface AiMessageOpts {
   content?: string;
   modules?: ParsedModule[];
   artifactType?: ArtifactType;
+  existingArtifactId?: string;
   streamContent?: string;
   wordCount?: number;
 }
@@ -46,6 +47,7 @@ export function makeAiMessage(type: ChatMessageType, opts: AiMessageOpts = {}): 
     content: opts.content,
     modules: opts.modules,
     artifactType: opts.artifactType,
+    existingArtifactId: opts.existingArtifactId,
     streamContent: opts.streamContent,
     wordCount: opts.wordCount,
   };
